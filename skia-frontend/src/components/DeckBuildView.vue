@@ -226,7 +226,66 @@
               <div class="skeleton-celestial">
                 <div v-for="i in 48" :key="'t'+teamNo+'-cell-' + i" class="grid-cell alliance-cell"></div>
               </div>
-                   
+<!-- ✨ 천결 아군 영역 SVG 추가 -->
+              <svg class="range-overlay-container">
+                <g v-for="range in computedRanges[teamNo]" :key="'svg-t' + teamNo + '-' + range.instanceId">
+                  <line 
+                    :x1="range.startX" 
+                    :y1="range.startY" 
+                    :x2="range.endX" 
+                    :y2="range.endY" 
+                    :stroke="range.color" 
+                    stroke-width="2.5" 
+                    stroke-dasharray="6,4" 
+                    opacity="0.7" 
+                  />
+                  <circle :cx="range.endX" :cy="range.endY" r="4.5" :fill="range.color" />
+                  
+                  <path 
+                    v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" 
+                    :d="range.pathD" 
+                    :fill="range.color" 
+                    fill-opacity="0.22" 
+                    :stroke="range.color" 
+                    stroke-width="1.5" 
+                  />
+
+                  <circle 
+                    v-else-if="range.shape === '원' && range.radius > 0" 
+                    :cx="range.drawX" 
+                    :cy="range.drawY" 
+                    :r="range.radius" 
+                    :fill="range.color" 
+                    fill-opacity="0.22" 
+                    :stroke="range.color" 
+                    stroke-width="1.5" 
+                  />
+
+                  <rect 
+                    v-else-if="range.shape === '사각형' && range.isForward && range.width > 0" 
+                    :x="range.drawX" 
+                    :y="range.drawY - (range.height / 2)" 
+                    :width="range.width" 
+                    :height="range.height" 
+                    :fill="range.color" 
+                    fill-opacity="0.22" 
+                    :stroke="range.color" 
+                    stroke-width="1.5" 
+                  />
+
+                  <rect 
+                    v-else-if="range.shape === '사각형' && !range.isForward && range.width > 0" 
+                    :x="range.drawX - (range.width / 2)" 
+                    :y="range.drawY - (range.height / 2)" 
+                    :width="range.width" 
+                    :height="range.height" 
+                    :fill="range.color" 
+                    fill-opacity="0.22" 
+                    :stroke="range.color" 
+                    stroke-width="1.5" 
+                  />
+                </g>
+              </svg>
               <div class="team-box">
                 <div v-for="char in activeChars(teamNo)" 
                   :key="char.instanceId" 
