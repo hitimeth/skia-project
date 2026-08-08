@@ -1,0 +1,48 @@
+:root {
+  /* 🎨 Color System */
+  --color-bg-page: #faf9f5;
+  --color-bg-surface: #ffffff;
+  --color-bg-dark: #121212;
+  --color-bg-dark-sub: #1a1a1a;
+  --color-bg-nav: #2a2a2a;
+  
+  /* Point Colors */
+  --color-primary: #e67e22;       /* 시그니처 주황색 */
+  --color-primary-hover: #d35400;
+  
+  /* Text Colors */
+  --text-main: #1a1a1a;
+  --text-sub: #334155;
+  --text-muted: #777777;
+  --text-white: #ffffff;
+  --text-link: #0066cc;
+  --text-link-hover: #004499;
+
+  /* State Colors */
+  --color-danger: #dc2626;
+  --color-danger-bg: #fff5f5;
+  --color-danger-border: #fca5a5;
+  --color-danger-hover-bg: #fee2e2;
+
+  /* Borders & Dividers */
+  --border-light: #e2e8f0;
+  --border-card: #eaeae8;
+  --border-dark: #1a1a1a;
+  --border-input: #cbd5e1;
+
+  /* 📐 Spacing & Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-pill: 24px;
+
+  /* 🔍 Typography */
+  --font-family-base: 'Noto Sans KR', sans-serif;
+  
+  /* 🥞 Layer Z-Index */
+  --z-banner: 10;
+  --z-drawer-backdrop: 99;
+  --z-drawer: 990;
+  --z-floating-btn: 998;
+  --z-top-btn: 999;
+}

@@ -1,0 +1,138 @@
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('skill_code','SKCOM','일반공격',1),
+	 ('skill_code','SKCR','치명타공격',2),
+	 ('skill_code','SKACT','액티브스킬',3),
+	 ('target_code','TG01','자신',1),
+	 ('target_code','TG02','아군',2),
+	 ('target_code','TG03','적군',3),
+	 ('target_code','TG04','범위적',4),
+	 ('stat_buff_code','STB01','공격력 증가',1),
+	 ('stat_buff_code','STB02','방어력 증가',2),
+	 ('stat_buff_code','STB03','공격속도 증가',3);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('stat_buff_code','STB04','이동속도 증가',4),
+	 ('stat_buff_code','STB05','명중 증가',5),
+	 ('stat_buff_code','STB06','회피 증가',6),
+	 ('stat_buff_code','STB07','치명타 확률 증가',7),
+	 ('stat_buff_code','STB08','치명타 피해 증가',8),
+	 ('stat_buff_code','STB09','치명타 확률 저항 증가',9),
+	 ('stat_buff_code','STB10','약점 공격 확률 증가',10),
+	 ('stat_buff_code','STB11','경감 확률 증가',11),
+	 ('stat_buff_code','STB12','약점 공격 피해 증가',12),
+	 ('stat_buff_code','STB13','추가 피해 확률 증가',13);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('stat_buff_code','STB14','받는 피해 감소',14),
+	 ('stat_buff_code','STB15','생명력 증가',15),
+	 ('stat_buff_code','STB16','추가 피해량',16),
+	 ('stat_buff_code','STB17','약점 공격 확률 저항 증가',17),
+	 ('stat_buff_code','STB18','추가 피해 확률 저항 증가',18),
+	 ('stat_buff_code','STB19','급소 공격 확률 증가',19),
+	 ('stat_buff_code','STB20','보스 몬스터 추가 피해량 증가',20),
+	 ('damage_buff_code','DGB01','특정 디버프 대상 피해량 증가',1),
+	 ('damage_buff_code','DGB02','길드 보스전 대상 피해량 증가',2),
+	 ('damage_buff_code','DGB03','출혈 대상 피해량 증가',3);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('damage_buff_code','DGB04','화상 대상 피해량 증가',4),
+	 ('damage_buff_code','DGB05','중독 대상 피해량 증가',5),
+	 ('damage_buff_code','DGB06','동상 대상 피해량 증가',6),
+	 ('damage_buff_code','DGB07','기절 대상 피해량 증가',7),
+	 ('damage_buff_code','DGB08','마비 대상 피해량 증가',8),
+	 ('damage_buff_code','DGB09','저주 대상 피해량 증가',9),
+	 ('damage_buff_code','DGB10','침묵 대상 피해량 증가',10),
+	 ('damage_buff_code','DGB11','방어형 대상 피해량 증가',11),
+	 ('damage_buff_code','DGB12','근거리형 대상 피해량 증가',12),
+	 ('damage_buff_code','DGB13','원거리형 대상 피해량 증가',13);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('damage_buff_code','DGB14','기능형 대상 피해량 증가',14),
+	 ('damage_buff_code','DGB15','악몽 대상 피해량 증가',15),
+	 ('damage_buff_code','DGB16','풍화 대상 피해량 증가',16),
+	 ('damage_buff_code','DGB17','결빙 대상 피해량 증가',17),
+	 ('damage_buff_code','DGB18','군중제어 효과 면역 대상 피해량 증가',18),
+	 ('damage_buff_code','DGB19','부식 대상 피해량 증가',19),
+	 ('damage_buff_code','DGB20','혼돈의 유적 대상 피해량 증가',20),
+	 ('damage_buff_code','DGB21','지속 피해량 증가:출혈',21),
+	 ('damage_buff_code','DGB22','지속 피해량 증가:화상',22),
+	 ('damage_buff_code','DGB23','지속 피해량 증가:중독',23);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('damage_buff_code','DGB24','지속 피해량 증가:동상',24),
+	 ('damage_buff_code','DGB25','지속 피해량 증가:풍화',25),
+	 ('damage_buff_code','DGB26','지속 피해량 증가:부식',26),
+	 ('stat_debuff_code','STDB01','결빙',1),
+	 ('stat_debuff_code','STDB02','공격력 감소',2),
+	 ('stat_debuff_code','STDB03','방어력 감소',3),
+	 ('stat_debuff_code','STDB04','공격속도 감소',4),
+	 ('stat_debuff_code','STDB05','이동속도 감소',5),
+	 ('stat_debuff_code','STDB06','명중 감소',6),
+	 ('stat_debuff_code','STDB07','회피 감소',7);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('stat_debuff_code','STDB08','치명타 확률 감소',8),
+	 ('stat_debuff_code','STDB09','치명타 피해 감소',9),
+	 ('stat_debuff_code','STDB10','치명타 확률 저항 감소',10),
+	 ('stat_debuff_code','STDB11','약점 공격 확률 감소',11),
+	 ('stat_debuff_code','STDB12','경감 확률 감소',12),
+	 ('stat_debuff_code','STDB13','약점 공격 피해 감소',13),
+	 ('stat_debuff_code','STDB14','추가 피해 확률 감소',14),
+	 ('stat_debuff_code','STDB15','받는 피해량 증가',15),
+	 ('stat_debuff_code','STDB16','약점 공격 확률 저항 감소',16),
+	 ('stat_debuff_code','STDB17','추가 피해 확률 저항 감소',17);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('crowd_control_code','CC01','이로운 효과 제거',1),
+	 ('crowd_control_code','CC02','결빙',2),
+	 ('crowd_control_code','CC03','도발',3),
+	 ('crowd_control_code','CC04','경직',4),
+	 ('crowd_control_code','CC05','넉백',5),
+	 ('crowd_control_code','CC06','마비',6),
+	 ('crowd_control_code','CC07','기절',7),
+	 ('crowd_control_code','CC08','수면',8),
+	 ('crowd_control_code','CC09','속박',9),
+	 ('crowd_control_code','CC10','저주',10);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('crowd_control_code','CC11','침묵',11),
+	 ('crowd_control_code','CC12','부활 불가',12),
+	 ('crowd_control_code','CC13','집중 공격',13),
+	 ('crowd_control_code','CC14','끌어당기기',14),
+	 ('crowd_control_code','CC15','막기 무효',15),
+	 ('utility_code','UT01','생명력 회복',1),
+	 ('utility_code','UT02','흡혈',2),
+	 ('utility_code','UT03','불사',3),
+	 ('utility_code','UT04','막기',4),
+	 ('utility_code','UT05','실드',5);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('utility_code','UT06','은신',6),
+	 ('utility_code','UT07','보호막',7),
+	 ('utility_code','UT08','도발 면역',8),
+	 ('utility_code','UT09','경직 면역',9),
+	 ('utility_code','UT10','넉백 면역',10),
+	 ('utility_code','UT11','마비 면역',11),
+	 ('utility_code','UT12','기절 면역',12),
+	 ('utility_code','UT13','수면 면역',13),
+	 ('utility_code','UT14','속박 면역',14),
+	 ('utility_code','UT15','저주 면역',15);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('utility_code','UT16','침묵 면역',16),
+	 ('utility_code','UT17','출혈 면역',17),
+	 ('utility_code','UT18','화상 면역',18),
+	 ('utility_code','UT19','중독 면역',19),
+	 ('utility_code','UT20','동상 면역',20),
+	 ('utility_code','UT21','군중제어 효과 면역',21),
+	 ('utility_code','UT22','쿨타임 감소',22),
+	 ('damage_over_time_code','DOT01','출혈',1),
+	 ('damage_over_time_code','DOT02','화상',2),
+	 ('damage_over_time_code','DOT03','중독',3);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('damage_over_time_code','DOT04','동상',4),
+	 ('damage_over_time_code','DOT05','풍화',5),
+	 ('damage_over_time_code','DOT06','부식',6),
+	 ('synergy_code','SG01','과부하',1),
+	 ('synergy_code','SG02','성장 버프 중중첩',2),
+	 ('skill_demage_code','SD01','공격력피해량',1),
+	 ('skill_demage_code','SD02','치명타피해량',2),
+	 ('attack_point_style_code','AP01','가장 가까운 대상',1),
+	 ('attack_point_style_code','AP02','근거리형',2),
+	 ('attack_point_style_code','AP03','원거리형',3);
+INSERT INTO public.skia_code (code_group,code_id,code_name,sort_order) VALUES
+	 ('attack_point_style_code','AP04','기능형',4),
+	 ('buff_type','BT01','버프',1),
+	 ('buff_type','BT02','디버프',2),
+	 ('target_point_code','TP01','대상',1),
+	 ('target_point_code','TP02','자신',2);

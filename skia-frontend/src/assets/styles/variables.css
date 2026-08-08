@@ -1,0 +1,462 @@
+@import './variables.css';
+
+/* ==========================================================================
+   1. Global Base & Layout
+   ========================================================================== */
+body, html {
+  font-family: var(--font-family-base);
+  background-color: var(--color-bg-page);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+}
+
+.menu-style-container {
+  font-family: var(--font-family-base);
+  background-color: var(--color-bg-page);
+  color: var(--text-main);
+  padding: 40px;
+  min-height: 100vh;
+  max-width: 1100px;       /* PC 화면에서 사용할 최대 가로 폭 (1100px ~ 1280px 사이 추천) */
+  margin: 0 auto !important; /* 좌우 자동 여백으로 중앙 정렬 */
+  box-sizing: border-box;  /* 패딩 포함 크기 계산 */
+}
+
+.flex-container {
+  display: flex;
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 150px);
+  overflow: hidden;
+}
+
+.grid-section {
+  flex: 1;
+  width: 100%;
+}
+
+#app {
+  width: 1126px;
+  max-width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  border-inline: 1px solid var(--border);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   2. Main Banner & Header Nav
+   ========================================================================== */
+.main-banner-container {
+  background-color: var(--color-bg-dark);
+  color: var(--text-white);
+  border-radius: var(--radius-lg);
+  padding: 20px 35px;
+  margin-bottom: 25px;
+  position: relative; 
+  z-index: var(--z-banner);
+}
+
+.banner-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.banner-bottom-accent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(to right, var(--color-bg-dark-sub), var(--color-primary), var(--color-bg-dark-sub));
+}
+
+.header-category-nav {
+  flex: 1;
+}
+
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.nav-link {
+  position: relative;
+  background: var(--color-bg-nav);
+  border: none;
+  color: var(--text-white);
+  font-size: 11px;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.nav-link:hover {
+  background: var(--color-primary);
+}
+
+.new-badge {
+  position: absolute;
+  top: -5px;
+  right: -3px;
+  background-color: var(--color-bg-nav);
+  color: var(--color-primary);
+  font-size: 9px;
+  font-weight: 900;
+  font-family: 'Arial', sans-serif;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ==========================================================================
+   3. Content Cards & Table / Grid
+   ========================================================================== */
+.category-block {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  border: 1px solid var(--border-card);
+}
+
+.category-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--border-dark);
+  padding-bottom: 8px;
+}
+
+.category-heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.grid-scroll-container {
+  max-height: 450px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border-dark);
+}
+
+.deck-grid-table {
+  width: 100%;
+  text-align: left;
+  font-size: 11px;
+  min-width: 480px;
+  border-collapse: collapse;
+}
+
+.deck-grid-table th {
+  background-color: #f1f2f6;
+  color: var(--text-main);
+  font-weight: 700;
+  padding: 8px;
+  border: 1px solid #bcbcbc;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.deck-grid-table td {
+  padding: 6px 8px;
+  border: 1px solid #dcdee2;
+  vertical-align: middle;
+}
+
+.td-center {
+  text-align: center !important;
+  width: 12%;
+}
+
+.font-bold {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.empty-sub-msg {
+  color: #aaa;
+  font-size: 13px;
+  padding: 20px 0;
+  font-style: italic;
+  text-align: center;
+}
+
+/* ==========================================================================
+   4. Common Buttons
+   ========================================================================== */
+.btn-black-solid {
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: none;
+  background-color: var(--color-bg-dark-sub);
+  color: var(--text-white);
+}
+
+.btn-add-category {
+  background: var(--color-bg-dark-sub);
+  color: var(--text-white);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  line-height: 1.2;
+}
+
+.btn-add-category:hover {
+  background: var(--color-primary);
+}
+
+.btn-grid-mini {
+  border: 1px solid var(--border-input);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--color-bg-surface);
+  color: #475569;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn-grid-mini:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-delete-mini {
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+}
+
+.btn-delete-mini:hover {
+  background: var(--color-danger-hover-bg);
+  border-color: var(--color-danger);
+}
+
+.btn-grid-copyinline {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  color: var(--text-link);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-grid-copyinline:hover {
+  text-decoration: underline;
+  color: var(--text-link-hover);
+}
+
+.btn-cancel-floating {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--color-bg-surface);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   5. Form Controls & Floating Drawers
+   ========================================================================== */
+.signature-form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signature-form-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.align-stretch {
+  align-items: flex-start !important;
+}
+
+.label-badge-box {
+  color: #2d3748;
+  font-weight: 700;
+  font-size: 12px;
+  width: 78px;
+  text-align: left;
+}
+
+.input-field-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.input-field-box input,
+.input-field-box select,
+.input-field-box textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-sub);
+  background-color: var(--color-bg-surface);
+  box-sizing: border-box;
+  outline: none;
+}
+
+.input-field-box textarea {
+  resize: none;
+  min-height: 28px;
+  height: 28px;
+}
+
+.form-action-button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Drawer Component */
+.form-section-drawer {
+  position: fixed;
+  top: 135px;
+  right: -450px;
+  width: 400px;
+  background: var(--color-bg-surface);
+  box-shadow: -5px 0 20px rgba(0, 0, 0, 0.08);
+  z-index: var(--z-drawer);
+  padding: 24px 20px;
+  box-sizing: border-box;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  transition: right 0.3s ease-in-out;
+}
+
+.form-section-drawer.is-open {
+  right: 0;
+}
+
+.form-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: var(--z-drawer-backdrop);
+}
+
+.btn-close-drawer {
+  position: absolute;
+  right: 0;
+  top: -4px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #666;
+}
+
+.btn-close-drawer:hover {
+  color: var(--text-main);
+}
+
+/* Floating Actions */
+.btn-toggle-floating {
+  position: fixed;
+  right: 24px;
+  z-index: var(--z-floating-btn);
+  padding: 12px 20px;
+  background-color: var(--color-primary);
+  color: var(--text-white);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-floating:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-scroll-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: var(--z-top-btn);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--color-bg-dark-sub);
+  color: var(--text-white);
+  border: none;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* ==========================================================================
+   6. Responsive Media Queries
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .menu-style-container { padding: 10px 0; }
+  .main-banner-container { padding: 15px; border-radius: 0; }
+  .nav-grid { grid-template-columns: repeat(4, 1fr); }
+  .flex-container { flex-direction: column; gap: 15px; }
+  .grid-section { order: 2; width: 100%; }
+  .category-block { border-radius: 0; border-left: none; border-right: none; padding: 12px; }
+}
+
+@media (max-width: 600px) {
+  .form-section-drawer {
+    width: 100%;
+    right: -100%;
+  }
+}

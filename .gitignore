@@ -1,0 +1,10 @@
+node_modules/
+.nvm/
+.vscode-server/
+.npm/
+node_modules/
+.npm/
+.nvm/
+.pm2/
+.vscode-server/
+.dotnet/

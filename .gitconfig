@@ -1,0 +1,9 @@
+[pack]
+	windowMemory = 10m
+	packSizeLimit = 20m
+	threads = 1
+[core]
+	bigFileThreshold = 10m
+[user]
+	email = hitimeth@gmail.com
+	name = hitimeth
