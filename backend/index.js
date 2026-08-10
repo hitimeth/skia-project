@@ -319,15 +319,65 @@ app.patch('/api/char_detail/:master_id', async (req, res) => {
   }
 });
 
+// 1. 버프 정보 수정 API (UPDATE)
 app.put('/api/char_buff_update', async (req, res) => {
   try {
-    const { buff_seq, skill_range, skill_cool_time, target_code, target_point_code, buff_name, effect_code, effect_code_name, effect_value, value_unit, effect_duration, range_type, range_detail, remark, is_awk_yn } = req.body;
+    const { 
+      buff_seq, skill_range, skill_cool_time, target_code, target_point_code, 
+      buff_name, buff_condition, effect_code, effect_code_name, effect_value, 
+      value_unit, effect_duration, range_type, range_detail, remark, is_awk_yn,
+      sort_order, hit_count, max_stack, range_x, range_y
+    } = req.body;
+
     const queryText = `
       UPDATE skia_char_buff 
-      SET skill_range = $1, skill_cool_time = $2, target_code = $3, target_point_code = $4, buff_name = $5, effect_code = $6, effect_code_name = $7, effect_value = $8, value_unit = $9, effect_duration = $10, range_type = $11, range_detail = $12, remark = $13, is_awk_yn = $14
-      WHERE buff_seq = $15
+      SET skill_range = $1, 
+          skill_cool_time = $2, 
+          target_code = $3, 
+          target_point_code = $4, 
+          buff_name = $5, 
+          buff_condition = $6, 
+          effect_code = $7, 
+          effect_code_name = $8, 
+          effect_value = $9, 
+          value_unit = $10, 
+          effect_duration = $11, 
+          range_type = $12, 
+          range_detail = $13, 
+          remark = $14, 
+          is_awk_yn = $15,
+          sort_order = $16,
+          hit_count = $17,
+          max_stack = $18,
+          range_x = $19,
+          range_y = $20
+      WHERE buff_seq = $21
     `;
-    const values = [skill_range || null, skill_cool_time || null, target_code || null, target_point_code || null, buff_name || null, effect_code || null, effect_code_name || null, effect_value || null, value_unit || null, effect_duration || null, range_type || null, range_detail || null, remark || null, is_awk_yn || 'N', buff_seq];
+
+    const values = [
+      skill_range || null, 
+      skill_cool_time || null, 
+      target_code || null, 
+      target_point_code || null, 
+      buff_name || null, 
+      buff_condition || null, 
+      effect_code || null, 
+      effect_code_name || null, 
+      effect_value || null, 
+      value_unit || null, 
+      effect_duration || null, 
+      range_type || null, 
+      range_detail || null, 
+      remark || null, 
+      is_awk_yn || 'N',
+      sort_order || null,
+      hit_count || null,
+      max_stack || null,
+      range_x || null,
+      range_y || null,
+      buff_seq
+    ];
+
     await pool.query(queryText, values);
     res.json({ success: true });
   } catch (err) {
@@ -336,15 +386,56 @@ app.put('/api/char_buff_update', async (req, res) => {
   }
 });
 
+// 2. 신규 버프 추가 API (INSERT)
 app.post('/api/char_buff_insert', async (req, res) => {
   try {
-    const { master_id, char_id, skill_code, skill_range, skill_cool_time, target_code, target_point_code, buff_name, effect_code, effect_code_name, effect_value, value_unit, effect_duration, range_type, range_detail, remark, is_awk_yn } = req.body;
+    const { 
+      master_id, char_id, skill_code, skill_range, skill_cool_time, 
+      target_code, target_point_code, buff_name, buff_condition, effect_code, 
+      effect_code_name, effect_value, value_unit, effect_duration, range_type, 
+      range_detail, remark, is_awk_yn, sort_order, hit_count, max_stack, range_x, range_y
+    } = req.body;
+
     const queryText = `
       INSERT INTO skia_char_buff (
-        master_id, char_id, skill_code, skill_range, skill_cool_time, target_code, target_point_code, buff_name, effect_code, effect_code_name, effect_value, value_unit, effect_duration, range_type, range_detail, remark, is_awk_yn
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING buff_seq;
+        master_id, char_id, skill_code, skill_range, skill_cool_time, 
+        target_code, target_point_code, buff_name, buff_condition, effect_code, 
+        effect_code_name, effect_value, value_unit, effect_duration, range_type, 
+        range_detail, remark, is_awk_yn, sort_order, hit_count, max_stack, range_x, range_y
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 
+        $21, $22, $23
+      ) 
+      RETURNING buff_seq;
     `;
-    const values = [master_id, char_id, skill_code || null, skill_range || null, skill_cool_time || null, target_code || null, target_point_code || null, buff_name || null, effect_code || null, effect_code_name || null, effect_value || null, value_unit || null, effect_duration || null, range_type || null, range_detail || null, remark || null, is_awk_yn || 'N'];
+
+    const values = [
+      master_id, 
+      char_id, 
+      skill_code || null, 
+      skill_range || null, 
+      skill_cool_time || null, 
+      target_code || null, 
+      target_point_code || null, 
+      buff_name || null, 
+      buff_condition || null, 
+      effect_code || null, 
+      effect_code_name || null, 
+      effect_value || null, 
+      value_unit || null, 
+      effect_duration || null, 
+      range_type || null, 
+      range_detail || null, 
+      remark || null, 
+      is_awk_yn || 'N',
+      sort_order || null,
+      hit_count || null,
+      max_stack || null,
+      range_x || null,
+      range_y || null
+    ];
+
     const result = await pool.query(queryText, values);
     res.json({ success: true, buff_seq: result.rows[0].buff_seq });
   } catch (err) {

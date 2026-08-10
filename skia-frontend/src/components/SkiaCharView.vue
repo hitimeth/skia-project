@@ -193,7 +193,6 @@
                     class="buff-search-input-full"
                   />
                 </div>
-
                 <div class="info-row-middle" style="margin-bottom: 4px;">
                   <span class="info-label" style="width: 40px;">선택:</span>
                   <select class="grid-select-box full-width-select" v-model="buff.effect_code">
@@ -203,6 +202,24 @@
                     </option>
                   </select>
                 </div>
+                <!-- ✨ [신규 추가] 버프 조건 (공통코드 또는 직접입력) -->
+                  <div class="info-row-condition" style="margin-bottom: 4px; display: flex; align-items: center;">
+                    <span class="info-label" style="width: 55px;">버프조건:</span>
+                    <!-- Option A: 공통코드(BC) 선택형 셀렉트 박스일 경우 -->
+                    <select class="grid-select-box full-width-select" v-model="buff.buff_condition">
+                      <option value="">-- 버프 조건 선택 --</option>
+                      <option v-for="c in filterCodes('BFC')" :key="c.code_id" :value="c.code_id">
+                        {{ c.code_name }} ({{ c.code_id }})
+                      </option>
+                    </select>
+
+                    <!-- Option B: 셀렉트 박스가 아닌 텍스트 직접 입력 방식일 경우 (Option A 대신 선택 사용) -->
+                    <!--
+                    <span contenteditable="true" class="editable inline-block-edit" style="width: calc(100% - 60px);" @blur="buff.buff_condition = $event.target.textContent.trim()">
+                      {{ buff.buff_condition }}
+                    </span>
+                    -->
+                  </div>                
               </td>
               <td style="padding: 6px; text-align: left; vertical-align: middle;">
                 <div class="info-row-top">
@@ -219,19 +236,21 @@
                   <span class="info-label">타격수:</span>
                   <span contenteditable="true" class="editable inline-edit" @blur="buff.hit_count = $event.target.textContent.trim()">{{ buff.hit_count }}</span>
                   <span class="info-split">/</span>
-                  <!-- 신규 추가: 최대스택 -->
-                  <span class="info-label">최소스택:</span>
+                  <!-- 신규 추가: 최대중첩 -->
+                  <span class="info-label">최대중첩:</span>
                   <span contenteditable="true" class="editable inline-edit" @blur="buff.max_stack = $event.target.textContent.trim()">{{ buff.max_stack }}</span>
                 </div>
 
                 <div class="buff-range-combined-row" style="margin-bottom: 4px;">
                   <div class="range-part">
                     <span class="info-label">범위:</span>
-                    <span contenteditable="true" class="editable inline-edit type-range-edit" @blur="buff.range_type = $event.target.textContent.trim()">{{ buff.range_type }}</span>
-                  </div>
-                  <div class="detail-part text-wrap-td">
-                    <span class="info-label">범위상세:</span>
-                    <span contenteditable="true" class="editable inline-block-edit range-detail-edit" @blur="buff.range_detail = $event.target.textContent.trim()">{{ buff.range_detail }}</span>
+                    <span style="min-width: 80px;" contenteditable="true" class="editable inline-edit type-range-edit" @blur="buff.range_type = $event.target.textContent.trim()">{{ buff.range_type }}</span>
+                    <span class="info-label"> 범위상세:</span>
+                    <span style="min-width: 150px;" contenteditable="true" class="editable inline-block-edit range-detail-edit" @blur="buff.range_detail = $event.target.textContent.trim()">{{ buff.range_detail }}</span>
+                    <span class="info-label"> x:</span>
+                    <span contenteditable="true" class="editable inline-block-edit range-detail-edit" @blur="buff.range_x = $event.target.textContent.trim()">{{ buff.range_x }}</span>
+                    <span class="info-label"> y:</span>
+                    <span contenteditable="true" class="editable inline-block-edit range-detail-edit" @blur="buff.range_y = $event.target.textContent.trim()">{{ buff.range_y }}</span>
                   </div>
                 </div>
 

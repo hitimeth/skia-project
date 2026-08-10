@@ -1216,8 +1216,7 @@ const calculateAllRanges = async () => {
       if (isNaN(baseRange) || baseRange <= 0) baseRange = 8.0;
 
       // 🎯 [사거리 점선 통일 기준] 
-      // 보스 중앙 위치(4.0칸)를 상한선으로 일정하게 고정
-      const attackRange = Math.min(baseRange * cellWidth * 0.42, cellWidth * 4.00);
+      const attackRange = baseRange * cellWidth * 0.038;
 
       const endX = isReverse ? startX - attackRange : startX + attackRange;
       const endY = startY;
