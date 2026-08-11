@@ -84,13 +84,23 @@
         
         <form @submit.prevent="saveDeckPost" class="signature-form-layout">
           <div class="signature-form-group">
+            <div class="label-badge-box">📁 카테고리</div>
+            <div class="input-field-box">
+              <select v-model="deckForm.category" required>
+                <option v-for="cat in fixedCategories" :key="cat" :value="cat">
+                  {{ cat }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="signature-form-group">
             <div class="label-badge-box">📅 기록날짜</div>
             <div class="input-field-box">
               <input 
                 type="text" 
                 v-model="deckForm.log_date" 
                 @blur="formatLogDate" 
-                placeholder="예: 07/23"
+                placeholder="예: 07/01"
               >
             </div>
           </div>
@@ -175,7 +185,7 @@ export default {
         this.isEditMode = !!parsedForm.board_id;
 
         // ⏱️ 모바일 기기가 리로드되자마자 즉시 사용자가 보던 등록 폼 위치로 강제 스크롤 고정
-        this.$nextTick(() => {
+        /*this.$nextTick(() => {
           setTimeout(() => {
             const targetCategory = this.$refs['cat-' + parsedForm.category];
             const targetForm = this.$refs.formSection;
@@ -187,7 +197,7 @@ export default {
               targetCategory[0].scrollIntoView({ behavior: 'auto', block: 'start' });
             }
           }, 150); // 모바일 브라우저가 화면을 다 그리는 찰나의 대기 시간 부여
-        });
+        });*/
       } catch (e) {
         console.error("복원 실패:", e);
       }
@@ -309,7 +319,7 @@ export default {
           this.deckForm.log_date = `${month}/${day}`;
         }
       } else if (val.length === 4) {
-        // 만약 '0723' 처럼 슬래시 없이 4자리 숫자로 입력한 경우 자동 보정
+        // 만약 '0701' 처럼 슬래시 없이 4자리 숫자로 입력한 경우 자동 보정
         const month = val.substring(0, 2);
         const day = val.substring(2, 4);
         this.deckForm.log_date = `${month}/${day}`;
@@ -410,7 +420,7 @@ export default {
 
       // 2. 10일 전 타임스탬프 계산
       const tenDaysAgo = new Date();
-      tenDaysAgo.setDate(now.getDate() - 10);
+      tenDaysAgo.setDate(now.getDate() - 7);
 
       // 3. 글 중에서 하나라도 10일 이내에 해당하는 항목이 있는지 검사
       return categoryDecks.some(deck => {
