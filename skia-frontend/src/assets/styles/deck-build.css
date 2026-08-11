@@ -43,7 +43,7 @@
 /* 3단 비율 분할 */
 .unified-battlefield-column { flex: 32; display: flex; flex-direction: column; gap: 12px; }
 .unified-battlefield-column-descent { flex: 27; display: flex; flex-direction: column; gap: 12px; }
-.status-column { flex: 34; background-color: #161820; border: 1px solid #2b2f3a; border-radius: 8px; padding: 12px; box-sizing: border-box; }
+.status-column { flex: 34; background-color: #161820; border: 1px solid #2b2f3a; border-radius: 8px; padding: 6px; box-sizing: border-box; }
 
 /* ⚔️ 전장 가로 행 레이아웃 */
 .battle-pair-row {
@@ -194,7 +194,7 @@ position: relative;
 .status-tab-btn.active { background-color: #3b82f6; border-color: #3b82f6; color: #ffffff; }
 .board-type-tab-menu .type-tab-btn { flex: 1; padding: 5px 0; font-size: 11px !important; font-weight: bold; border-radius: 6px; cursor: pointer; background-color: #0f1015; border: 1px solid #2b2f3a; color: #a0aec0; }
 .board-type-tab-menu .type-tab-btn.active { background-color: #1e293b; border-color: #4b5563; color: #ffffff; }
-.compact-section { flex: 1; background-color: #0f1015; border-radius: 6px; border: 1px solid #2b2f3a; padding: 8px; display: flex; flex-direction: column; overflow: hidden; }
+.compact-section { flex: 1; background-color: #0f1015; border-radius: 6px; border: 1px solid #2b2f3a; padding: 4px; display: flex; flex-direction: column; overflow: hidden; }
 .section-title-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2b2f3a; padding-bottom: 6px; margin-bottom: 8px; }
 .section-title-bar h3 { margin: 0; font-size: 11.5px !important; font-weight: bold; color: #ffffff; }
 .selected-team-text { font-size: 10px !important; color: #3b82f6; font-weight: bold; }
