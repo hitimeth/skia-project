@@ -1066,6 +1066,31 @@
 .buff-item-right .divider {
   opacity: 0.3;
 }
+/* 스킬 타입 뱃지 공통 스타일 */
+.skill-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  flex-shrink: 0; /* 뱃지가 비틀어지거나 줄어들지 않도록 고정 */
+}
+
+/* C (치명타 공격) 뱃지 - 빨간색/주황색 계열 */
+.badge-crit {
+  background-color: #e74c3c;
+  color: #ffffff;
+}
+
+/* A (액티브 스킬) 뱃지 - 파란색/보라색 계열 */
+.badge-active {
+  background-color: #3498db;
+  color: #ffffff;
+}
+
 /* ===================================================
    8. 반응형 미디어 쿼리 (Responsive Queries)
    =================================================== */

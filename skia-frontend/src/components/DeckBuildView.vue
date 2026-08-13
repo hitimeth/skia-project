@@ -491,90 +491,114 @@
                 </div>
 
                 <!-- 스킬 및 버프/디버프 상세 영역 -->
-                <div class="hero-buff-list-box mt-3">                
-                  <div v-if="selectedHeroDetail.buffs && selectedHeroDetail.buffs.length > 0" class="buff-category-wrapper">
-                    
-                    <!-- 1️⃣ 자신 버프 영역 -->
-                    <div v-if="getBuffsByCategory('SELF_BUFF').length > 0" class="effect-group-box self-group">
-                      <div class="group-header-label text-self">
-                        <span>👤 자신 버프</span>
-                      </div>
-                      <div class="buff-card-list">
-                        <div v-for="b in getBuffsByCategory('SELF_BUFF')" :key="b.buff_seq" class="buff-item-card card-self">
-                          <div class="buff-item-left">
-                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                            <span class="buff-val">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                            <!-- 🌟 최대수치 v-if 조건 추가 -->
-                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
-                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
-                            </span>
-                          </div>
-                          <div class="buff-item-right">
-                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+<div class="hero-buff-list-box mt-3">                
+  <div v-if="selectedHeroDetail.buffs && selectedHeroDetail.buffs.length > 0" class="buff-category-wrapper">
+    
+    <!-- 1️⃣ 자신 버프 영역 -->
+    <div v-if="getBuffsByCategory('SELF_BUFF').length > 0" class="effect-group-box self-group">
+      <div class="group-header-label text-self">
+        <span>👤 자신 버프</span>
+      </div>
+      <div class="buff-card-list">
+        <div v-for="b in getBuffsByCategory('SELF_BUFF')" :key="b.buff_seq" class="buff-item-card card-self">
+          <div class="buff-item-left">
+            
+            <!-- 🌟 skill_code 기준으로 C / A 구분 -->
+            <span 
+              class="skill-type-badge" 
+              :class="b.skill_code === 'SKI02' ? 'badge-crit' : 'badge-active'"
+            >
+              {{ b.skill_code === 'SKI02' ? 'C' : 'A' }}
+            </span>
 
-                    <!-- 2️⃣ 아군 버프 영역 -->
-                    <div v-if="getBuffsByCategory('TEAM_BUFF').length > 0" class="effect-group-box team-group">
-                      <div class="group-header-label text-team">
-                        <span>🛡️ 아군 버프</span>
-                      </div>
-                      <div class="buff-card-list">
-                        <div v-for="b in getBuffsByCategory('TEAM_BUFF')" :key="b.buff_seq" class="buff-item-card card-team">
-                          <div class="buff-item-left">
-                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                            <span class="buff-val text-green">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                            <!-- 🌟 최대수치 v-if 조건 추가 -->
-                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
-                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
-                            </span>
-                          </div>
-                          <div class="buff-item-right">
-                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+            <span class="buff-val">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
+              MAX: {{ b.max_value }}{{ b.unit || '%' }}
+            </span>
+          </div>
+          <div class="buff-item-right">
+            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+            <span class="divider">|</span>
+            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+            <span class="divider">|</span>
+            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-                    <!-- 3️⃣ 적군 디버프 영역 -->
-                    <div v-if="getBuffsByCategory('DEBUFF').length > 0" class="effect-group-box debuff-group">
-                      <div class="group-header-label text-debuff">
-                        <span>⚔️ 적군 디버프</span>
-                      </div>
-                      <div class="buff-card-list">
-                        <div v-for="b in getBuffsByCategory('DEBUFF')" :key="b.buff_seq" class="buff-item-card card-debuff">
-                          <div class="buff-item-left">
-                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                            <span class="buff-val text-red">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                            <!-- 🌟 최대수치 v-if 조건 추가 -->
-                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
-                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
-                            </span>
-                          </div>
-                          <div class="buff-item-right">
-                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+    <!-- 2️⃣ 아군 버프 영역 -->
+    <div v-if="getBuffsByCategory('TEAM_BUFF').length > 0" class="effect-group-box team-group">
+      <div class="group-header-label text-team">
+        <span>🛡️ 아군 버프</span>
+      </div>
+      <div class="buff-card-list">
+        <div v-for="b in getBuffsByCategory('TEAM_BUFF')" :key="b.buff_seq" class="buff-item-card card-team">
+          <div class="buff-item-left">
+            
+            <!-- 🌟 skill_code 기준으로 C / A 구분 -->
+            <span 
+              class="skill-type-badge" 
+              :class="b.skill_code === 'SKI02' ? 'badge-crit' : 'badge-active'"
+            >
+              {{ b.skill_code === 'SKI02' ? 'C' : 'A' }}
+            </span>
 
-                  </div>
-                  <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
-                </div>
+            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+            <span class="buff-val text-green">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
+              MAX: {{ b.max_value }}{{ b.unit || '%' }}
+            </span>
+          </div>
+          <div class="buff-item-right">
+            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+            <span class="divider">|</span>
+            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+            <span class="divider">|</span>
+            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3️⃣ 적군 디버프 영역 -->
+    <div v-if="getBuffsByCategory('DEBUFF').length > 0" class="effect-group-box debuff-group">
+      <div class="group-header-label text-debuff">
+        <span>⚔️ 적군 디버프</span>
+      </div>
+      <div class="buff-card-list">
+        <div v-for="b in getBuffsByCategory('DEBUFF')" :key="b.buff_seq" class="buff-item-card card-debuff">
+          <div class="buff-item-left">
+            
+            <!-- 🌟 skill_code 기준으로 C / A 구분 -->
+            <span 
+              class="skill-type-badge" 
+              :class="b.skill_code === 'SKI02' ? 'badge-crit' : 'badge-active'"
+            >
+              {{ b.skill_code === 'SKI02' ? 'C' : 'A' }}
+            </span>
+
+            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+            <span class="buff-val text-red">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
+              MAX: {{ b.max_value }}{{ b.unit || '%' }}
+            </span>
+          </div>
+          <div class="buff-item-right">
+            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+            <span class="divider">|</span>
+            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+            <span class="divider">|</span>
+            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
+</div>
               </div>
 
               <div v-else class="empty-status-alert compact-alert">
