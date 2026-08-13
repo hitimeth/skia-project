@@ -1213,8 +1213,119 @@ app.delete('/api/char-effects/:effect_seq', async (req, res) => {
   }
 });
 
+// [백엔드] Express 라우트
+app.get('/api/chars/detail/:char_id', async (req, res) => {
+  const { char_id } = req.params;
+  try {
+    // 1. 캐릭터 기본 정보 조회
+    const baseResult = await pool.query(
+      `SELECT master_id, 
+              char_id AS id, 
+              nickname AS name, 
+              battle_type, 
+              attack_style_code,
+              code.code_name AS attack_style_name, 
+              is_awk_yn, 
+              char_detail 
+       FROM skia_char
+       LEFT JOIN skia_code code ON skia_char.attack_style_code = code.code_id 
+       WHERE UPPER(char_id) = UPPER($1)`,
+      [char_id]
+    );
 
+    if (baseResult.rows.length === 0) {
+      return res.status(404).json({ message: '해당 캐릭터를 찾을 수 없습니다.' });
+    }
 
+    const heroBase = baseResult.rows[0];
+
+    // 2. skia_char_buff 및 코드 테이블 조인 조회
+    const buffQuery = `
+      SELECT 
+        b.buff_seq,
+        b.skill_code,
+        b.buff_name,
+        b.target_code,
+        tc.code_name AS target_type,              -- Vue: b.target_type 매핑
+        b.target_point_code, 
+        tpc.code_name AS target_point_name,
+        gc.effect_type AS effect_type,           -- '버프', '디버프' 등
+        b.effect_code,
+        c.code_name AS effect_code_name,
+        b.effect_value,                           -- 원본 수치 (계산용)
+        b.value_unit AS unit,                     -- Vue: b.unit 매핑
+        COALESCE(b.effect_value::text, '') AS effect_value_str,
+        b.effect_duration AS duration,
+        b.max_stack,                              -- 중첩 수
+        b.hit_count,                              -- 타격 수
+        b.skill_range AS range,                   -- 사거리 (int4)
+        b.skill_cool_time AS cooldown,            -- 🔥 ERD 컬럼 반영: skill_cool_time (numeric)
+        b.range_type,
+        b.range_detail,
+        b.range_x,
+        b.range_y,
+        b.buff_condition,
+        b.remark
+      FROM skia_char_buff b
+      LEFT JOIN skia_code c ON b.effect_code = c.code_id
+      LEFT JOIN skia_group_code gc ON c.code_group = gc.code_group
+      LEFT JOIN skia_code tc ON b.target_code = tc.code_id
+      LEFT JOIN skia_code tpc ON b.target_point_code = tpc.code_id
+      WHERE b.master_id = $1
+      ORDER BY b.skill_code, b.value_unit
+    `;
+
+    const buffResult = await pool.query(buffQuery, [heroBase.master_id]);
+
+    // 3. 계산치(calculated_value) 및 프론트엔드 반환 데이터 포맷팅
+    const formattedBuffs = buffResult.rows.map(b => {
+      let calcVal = null;
+      
+      if (b.effect_value !== null && b.effect_value !== undefined) {
+        const val = Number(b.effect_value);
+        const hits = Number(b.hit_count) || 1;
+        const stacks = Number(b.max_stack) || 1;
+        const unit = b.unit || '%';
+
+        // 1순위: DB의 max_value 컬럼에 수동 입력값이 있는 경우 (곱연산 등 예외 케이스)
+        if (b.max_value !== null && b.max_value !== undefined && Number(b.max_value) > 0) {
+          const maxVal = Number(b.max_value);
+          
+          if (stacks > 1) {
+            calcVal = `${maxVal.toLocaleString()}${unit} (최대 ${stacks}중첩)`;
+          } else if (hits > 1) {
+            calcVal = `${maxVal.toLocaleString()}${unit} (총 ${hits}타)`;
+          } else {
+            calcVal = `${maxVal.toLocaleString()}${unit}`;
+          }
+        } 
+        // 2순위: 수동 입력값은 없지만 타격수가 2 이상인 경우 (자동 단순 곱셈)
+        else if (hits > 1) {
+          calcVal = `${(val * hits).toLocaleString()}${unit} (총 ${hits}타)`;
+        } 
+        // 3순위: 수동 입력값은 없지만 중첩수가 2 이상인 경우 (자동 단순 곱셈)
+        else if (stacks > 1) {
+          calcVal = `${(val * stacks).toLocaleString()}${unit} (${stacks}중첩)`;
+        }
+      }
+
+      return {
+        ...b,
+        effect_value: b.effect_value_str,
+        max_value: b.max_value ? Number(b.max_value) : null,
+        calculated_value: calcVal // Vue: b.calculated_value 매핑
+      };
+    });
+
+    res.json({
+      ...heroBase,
+      buffs: formattedBuffs
+    });
+  } catch (err) {
+    console.error('캐릭터 상세 정보 조회 에러:', err);
+    res.status(500).json({ message: '서버 에러가 발생했습니다.' });
+  }
+});
 app.listen(port, () => {
   console.log(`Skia 통합 백엔드 서버가 포트 ${port} 에서 원활하게 작동 중입니다.`);
 });

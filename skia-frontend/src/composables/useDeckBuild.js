@@ -1150,7 +1150,6 @@ const openBuffModal = (options = {}) => {
 
   const computedRanges = ref({ 1: [], 2: [], 3: []});
 
-  console.log("🔥 [최신 소스 적용 확인용 마커] 2026-08-07 v1.0.1");
 const calculateAllRanges = async () => {
   await nextTick();
   if (!isMounted.value) return;
@@ -1453,6 +1452,126 @@ const calculateAllRanges = async () => {
     }
   };
 
+// 1. RAW API 응답 데이터를 저장하는 ref (기존 selectedHeroDetail 역할을 대체)
+const selectedHeroDetailRaw = ref(null);
+const isLoadingHeroDetail = ref(false);
+
+// 2. 💡 [요청하신 부분] 템플릿(Vue HTML)에서 바로 바인딩 가능하도록 데이터를 정제하는 computed
+const selectedHeroDetail = computed(() => {
+  if (!selectedHeroDetailRaw.value) return null;
+
+  const { buffs = [], ...heroBase } = selectedHeroDetailRaw.value;
+
+  // 1. 스킬 코드별 버프 추출
+  const normalSkill = buffs.find(b => b.skill_code === 'SKI01') || {};
+  const critSkill = buffs.find(b => b.skill_code === 'SKI02') || {};
+  
+  // 🌟 [수정] 액티브스킬(SKI03) 중에서 '공격력피해량(SDC01)' 효과를 가진 항목을 최우선 탐색
+  const activeSkill = buffs.find(b => b.skill_code === 'SKI03' && b.effect_code === 'SDC01') 
+                   || buffs.find(b => b.skill_code === 'SKI03') 
+                   || {};
+
+  // 스킬 범위/형태 문자열 가공 함수 (예: 2m * 3m)
+  const formatArea = (skill) => {
+    if (skill.range_x && skill.range_y) {
+      return `${skill.range_x}m*${skill.range_y}m`;
+    }
+    if (skill.range_detail && String(skill.range_detail).trim() !== '') {
+      return skill.range_detail;
+    }
+    return '-';
+  };
+
+  return {
+    ...heroBase,
+    buffs: buffs, // Vue Template의 v-if="selectedHeroDetail.buffs" 조건 통과용
+
+    // 1. 일반공격
+    normal_damage: normalSkill.calculated_value || (normalSkill.effect_value ? `${normalSkill.effect_value}${normalSkill.unit || '%'}` : '0%'),
+
+    // 2. 치명타공격
+    crit_value: critSkill.effect_value ? `${critSkill.effect_value}${critSkill.unit || '%'}` : '-',
+    crit_damage: critSkill.calculated_value || (critSkill.effect_value ? `${critSkill.effect_value}${critSkill.unit || '%'}` : '0%'),
+    crit_range: critSkill.range ? `${critSkill.range}` : (critSkill.range === 0 ? '0' : '-'),
+
+    // 3. 액티브스킬 (SDC01 공격력피해량 정보 우선 적용)
+    active_skill_name: activeSkill.effect_code_name,
+    effect_value: activeSkill.effect_value ? `${activeSkill.effect_value}${activeSkill.unit || '%'}` : '-',
+    active_damage: activeSkill.calculated_value || (activeSkill.effect_value ? `${activeSkill.effect_value}${activeSkill.unit || '%'}` : '0%'),
+    active_shape: activeSkill.range_type || activeSkill.range_shape || '-',
+    active_area: formatArea(activeSkill),
+    
+    // 🌟 단위(m, 초) 및 0값/null 안전 처리 추가
+    active_range: (activeSkill.range !== null && activeSkill.range !== undefined) ? `${activeSkill.range}` : '-',
+    active_cooldown: (activeSkill.cooldown !== null && activeSkill.cooldown !== undefined) ? `${activeSkill.cooldown}초` : '-'
+  };
+});
+
+// 3. 영웅 선택 시 백엔드 API 호출하여 세부 정보 로드
+const fetchHeroDetail = async (charId) => {
+  if (!charId) {
+    selectedHeroDetailRaw.value = null;
+    return;
+  }
+  
+  try {
+    isLoadingHeroDetail.value = true;
+    const response = await axios.get(`${BASE_URL}/api/chars/detail/${charId}`);
+    // RAW 응답 객체를 selectedHeroDetailRaw에 저장 -> selectedHeroDetail computed가 자동 갱신됨
+    selectedHeroDetailRaw.value = response.data;
+  } catch (error) {
+    console.error('캐릭터 상세 정보 로드 실패:', error);
+    selectedHeroDetailRaw.value = null;
+  } finally {
+    isLoadingHeroDetail.value = false;
+  }
+};
+
+// 4. 선택된 영웅 변경 감지 Watcher
+watch(() => selectedHeroName.value, (newHeroName) => {
+  if (newHeroName) {
+    const targetHero = rawHeroList.value.find(h => h.name === newHeroName || h.id === newHeroName) 
+                    || filteredHeroPool.value.find(h => h.name === newHeroName || h.id === newHeroName);
+    
+    if (targetHero && targetHero.id) {
+      fetchHeroDetail(targetHero.id);
+    }
+  } else {
+    selectedHeroDetailRaw.value = null;
+  }
+});
+
+// 5. 코드 기준 정밀 버프 분류 함수 (selectedHeroDetailRaw 기반 판별)
+const getBuffsByCategory = (categoryType) => {
+  if (!selectedHeroDetailRaw.value || !selectedHeroDetailRaw.value.buffs) return [];
+
+  return selectedHeroDetailRaw.value.buffs.filter(b => {
+    // 1. 디버프 판별 (effect_type이 '디버프'이거나 effect_code가 SDB, DOT, CCC로 시작하는 경우)
+    const isDebuff = b.effect_type === '디버프' || 
+                     (b.effect_code && (b.effect_code.startsWith('SDB') || b.effect_code.startsWith('DOT') || b.effect_code.startsWith('CCC')));
+    
+    // 2. target_code 또는 target_type 텍스트 통합 판별
+    const target = String(b.target_type || b.target_code || '');
+
+    // 아군 버프 (TGT02 또는 '아군' 포함)
+    const isTeam = (target.includes('아군') || target === 'TGT02') && !isDebuff;    
+    
+    // 자신 버프 (TGT01, TPC02 또는 '자신' 포함)
+    const isSelf = (target.includes('자신') || target === 'TGT01' || target === 'TPC02' || target === 'TGT03' || target === 'TGT04') && !isDebuff && !isTeam;
+
+    if (categoryType === 'DEBUFF') return isDebuff;
+    if (categoryType === 'SELF_BUFF') return isSelf;
+    if (categoryType === 'TEAM_BUFF') return isTeam;
+    return false;
+  });
+};
+
+// 4. 캐릭터 클릭 시 선택 핸들러
+const handleHeroSelect = (char) => {
+  selectHero(char);
+  // activeBoardType.value = 'info'; // 필요 시 탭 전환
+};
+
   onMounted(async () => {
     window.addEventListener('message', (event) => {
       if (event.data?.type === 'REFRESH_BUFF_POOL' && typeof refreshBuffData === 'function') {
@@ -1569,6 +1688,9 @@ const calculateAllRanges = async () => {
     getCodeName,
     cameraPositions,
     teamCameraGridPositions,
+    selectedHeroDetail,
+    handleHeroSelect,
+    getBuffsByCategory,
     BASE_URL,
     maxTeamMembers,
     gridRows,

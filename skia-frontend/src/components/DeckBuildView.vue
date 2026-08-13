@@ -4,7 +4,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght=100..900&family=Pretendard:wght=100..900&display=swap" rel="stylesheet">
 
   <div class="arena-wrapper">    
-    <!-- Top header & controls (variant-specific texts inside) -->
+    <!-- Top header & controls -->
     <div class="top-dashboard-zone">
       <div class="dashboard-header">
         <h2>{{ headerText.title }}</h2>
@@ -34,11 +34,10 @@
       </div>
     </div>
 
-    <!-- Main workspace: render variant-specific layout -->
+    <!-- Main workspace -->
     <div class="main-workspace-zone">
       <!-- ================= [1] DESCENT MODE (강림) ================= -->
       <div v-if="boardCategory === 'descent'" class="workspace-column unified-battlefield-column-descent">
-        <!-- Team 1 강림 (아군 좌측 / 보스 우측) -->
         <div class="battle-pair-row">
           <div class="team-arena-section">
             <div class="team-title-banner alliance">
@@ -54,48 +53,19 @@
                 <div v-for="i in 48" :key="'t1-cell-' + i" class="grid-cell alliance-cell"></div>
               </div>
 
-              <!-- 강림 팀 1 아군 SVG -->
               <svg class="range-overlay-container">
                 <g v-for="range in computedRanges[1]" :key="'svg-t1-' + range.instanceId">
                   <line :x1="range.startX" :y1="range.startY" :x2="range.endX" :y2="range.endY" :stroke="range.color" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.7" />
                   <circle :cx="range.endX" :cy="range.endY" r="4.5" :fill="range.color" />
                   
-                  <path 
-                    v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" 
-                    :d="range.pathD" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <circle 
-                    v-else-if="range.shape === '원' && range.radius > 0" 
-                    :cx="range.drawX" 
-                    :cy="range.drawY" 
-                    :r="range.radius" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <rect 
-                    v-else-if="range.shape === '사각형' && range.width > 0" 
-                    :x="range.drawX" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
+                  <path v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" :d="range.pathD" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <circle v-else-if="range.shape === '원' && range.radius > 0" :cx="range.drawX" :cy="range.drawY" :r="range.radius" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && range.width > 0" :x="range.drawX" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                 </g>
               </svg>
      
               <div class="team-box">
-                <div v-for="char in activeChars(1)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, 1)" @drag="onDragging" @click.stop="selectHero(char)" @contextmenu.prevent="removeHero(char, 1)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars(1)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, 1)" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, 1)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -104,7 +74,6 @@
             </div>
           </div>
 
-          <!-- 강림 팀 1 우측 보스 격자판 -->
           <div class="boss-arena-section">
             <div class="boss-zone-header">              
               <span class="boss-badge">{{ texts.arena.bossBadgeNightmare }}</span>
@@ -115,43 +84,12 @@
                 <div v-for="i in 48" :key="'b1-cell-' + i" class="grid-cell boss-cell"></div>
               </div>
 
-              <!-- 강림 팀 1 보스 영역 SVG -->
               <svg class="range-overlay-container boss-range-svg">
                 <g v-for="range in computedRanges[1]" :key="'svg-boss-t1-' + range.instanceId">
                   <line :x1="range.bossStartX" :y1="range.startY" :x2="range.bossEndX" :y2="range.endY" :stroke="range.color" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.7" />
-                  
-                  <path 
-                    v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" 
-                    :d="range.pathD" 
-                    :transform="`translate(${range.bossDrawX - range.drawX}, 0)`"
-                    :fill="range.color" 
-                    fill-opacity="0.25" 
-                    :stroke="range.color" 
-                    stroke-width="2" 
-                  />
-                  
-                  <circle 
-                    v-else-if="range.shape === '원' && range.radius > 0" 
-                    :cx="range.bossDrawX" 
-                    :cy="range.drawY" 
-                    :r="range.radius" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <rect 
-                    v-else-if="range.shape === '사각형' && range.width > 0" 
-                    :x="range.bossDrawX" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
+                  <path v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" :d="range.pathD" :transform="`translate(${range.bossDrawX - range.drawX}, 0)`" :fill="range.color" fill-opacity="0.25" :stroke="range.color" stroke-width="2" />
+                  <circle v-else-if="range.shape === '원' && range.radius > 0" :cx="range.bossDrawX" :cy="range.drawY" :r="range.radius" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && range.width > 0" :x="range.bossDrawX" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                 </g>
               </svg>
 
@@ -164,9 +102,7 @@
           </div>
         </div>
 
-        <!-- 팀 1_reverse (보스 좌측 / 아군 우측) -->
         <div class="battle-pair-row reverse-layout">
-          <!-- 좌측 보스 격자판 -->
           <div class="boss-arena-section reverse-boss">
             <div class="boss-zone-header">
               <span class="boss-badge reverse-badge">{{ texts.arena.bossBadgeNightmare }}</span>
@@ -198,7 +134,7 @@
                 <div v-for="i in 48" :key="'trev-cell-' + i" class="grid-cell alliance-cell"></div>
               </div>
               <div class="team-box">
-                <div v-for="char in activeChars('1_reverse')" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, '1_reverse')" @drag="onDragging" @click.stop="selectHero(char)" @contextmenu.prevent="removeHero(char, '1_reverse')" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars('1_reverse')" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, '1_reverse')" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, '1_reverse')" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -212,8 +148,6 @@
       <!-- ================= [2] CELESTIAL MODE (천결) ================= -->
       <div v-else-if="boardCategory === 'celestial'" class="workspace-column unified-battlefield-column">
         <div v-for="teamNo in [1, 2, 3]" :key="'battle-pair-' + teamNo" class="battle-pair-row">
-          
-          <!-- [좌측] 아군 6*8 격자판 -->
           <div class="team-arena-section">
             <div class="team-title-banner alliance">
               <h3>🛡️ TEAM {{ teamNo }} <span class="char-count">({{ getTeamCharCount(teamNo) }}/15)</span></h3>
@@ -226,79 +160,19 @@
               <div class="skeleton-celestial">
                 <div v-for="i in 48" :key="'t'+teamNo+'-cell-' + i" class="grid-cell alliance-cell"></div>
               </div>
-<!-- ✨ 천결 아군 영역 SVG 추가 -->
+
               <svg class="range-overlay-container">
                 <g v-for="range in computedRanges[teamNo]" :key="'svg-t' + teamNo + '-' + range.instanceId">
-                  <line 
-                    :x1="range.startX" 
-                    :y1="range.startY" 
-                    :x2="range.endX" 
-                    :y2="range.endY" 
-                    :stroke="range.color" 
-                    stroke-width="2.5" 
-                    stroke-dasharray="6,4" 
-                    opacity="0.7" 
-                  />
+                  <line :x1="range.startX" :y1="range.startY" :x2="range.endX" :y2="range.endY" :stroke="range.color" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.7" />
                   <circle :cx="range.endX" :cy="range.endY" r="4.5" :fill="range.color" />
-                  
-                  <path 
-                    v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" 
-                    :d="range.pathD" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <circle 
-                    v-else-if="range.shape === '원' && range.radius > 0" 
-                    :cx="range.drawX" 
-                    :cy="range.drawY" 
-                    :r="range.radius" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <rect 
-                    v-else-if="range.shape === '사각형' && range.isForward && range.width > 0" 
-                    :x="range.drawX" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <rect 
-                    v-else-if="range.shape === '사각형' && !range.isForward && range.width > 0" 
-                    :x="range.drawX - (range.width / 2)" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
+                  <path v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" :d="range.pathD" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <circle v-else-if="range.shape === '원' && range.radius > 0" :cx="range.drawX" :cy="range.drawY" :r="range.radius" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && range.isForward && range.width > 0" :x="range.drawX" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && !range.isForward && range.width > 0" :x="range.drawX - (range.width / 2)" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                 </g>
               </svg>
               <div class="team-box">
-                <div v-for="char in activeChars(teamNo)" 
-                  :key="char.instanceId" 
-                  class="char-card" 
-                  :class="{ 'selected-hero': selectedHeroName === char.name }"
-                  :id="'char-' + char.instanceId" 
-                  draggable="true" 
-                  @dragstart="onDragStart($event, char, teamNo)" 
-                  @drag="onDragging" 
-                  @click.stop="selectHero(char)"
-                  @contextmenu.prevent="removeHero(char, teamNo)" 
-                  :title="`${char.name}`" 
-                  :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars(teamNo)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, teamNo)" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, teamNo)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -307,7 +181,6 @@
             </div>
           </div>
 
-          <!-- [우측] 적군 / 전장 6*8 격자판 -->
           <div class="boss-arena-section">
             <div class="boss-zone-header">
               <span class="boss-badge">{{ texts.arena.bossBadgeCelestial }}</span>
@@ -317,43 +190,12 @@
                 <div v-for="i in 48" :key="'b'+teamNo+'-cell-' + i" class="grid-cell boss-cell"></div>
               </div>
               
-              <!-- 천결 보스 영역 SVG -->
               <svg class="range-overlay-container boss-range-svg">
                 <g v-for="range in computedRanges[teamNo]" :key="'svg-boss-t'+teamNo+'-' + range.instanceId">
                   <line :x1="range.bossStartX" :y1="range.startY" :x2="range.bossEndX" :y2="range.endY" :stroke="range.color" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.7" />
-                  
-                  <path 
-                    v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" 
-                    :d="range.pathD" 
-                    :transform="`translate(${range.bossDrawX - range.drawX}, 0)`"
-                    :fill="range.color" 
-                    fill-opacity="0.25" 
-                    :stroke="range.color" 
-                    stroke-width="2" 
-                  />
-                  
-                  <circle 
-                    v-else-if="range.shape === '원' && range.radius > 0" 
-                    :cx="range.bossDrawX" 
-                    :cy="range.drawY" 
-                    :r="range.radius" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-                    
-                  <rect 
-                    v-else-if="range.shape === '사각형' && range.width > 0" 
-                    :x="range.bossDrawX" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
+                  <path v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" :d="range.pathD" :transform="`translate(${range.bossDrawX - range.drawX}, 0)`" :fill="range.color" fill-opacity="0.25" :stroke="range.color" stroke-width="2" />
+                  <circle v-else-if="range.shape === '원' && range.radius > 0" :cx="range.bossDrawX" :cy="range.drawY" :r="range.radius" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && range.width > 0" :x="range.bossDrawX" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                 </g>
               </svg>
          
@@ -364,15 +206,12 @@
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
       <!-- ================= [3] NIGHTMARE MODE (나이트메어/기본) ================= -->
       <div v-else class="workspace-column unified-battlefield-column">
         <div v-for="teamNo in [1, 2, 3]" :key="'battle-pair-' + teamNo" class="battle-pair-row">
-          
-          <!-- [좌측] 아군 격자판 -->
           <div class="team-arena-section">
             <div class="team-title-banner alliance">
               <h3>🛡️ TEAM {{ teamNo }} <span class="char-count">({{ getTeamCharCount(teamNo) }}/15)</span></h3>
@@ -386,64 +225,14 @@
                 <div v-for="i in 25" :key="'t'+teamNo+'-cell-' + i" class="grid-cell alliance-cell"></div>
               </div>
 
-              <!-- [좌측] 아군 격자판 내 SVG -->
               <svg class="range-overlay-container">
                 <g v-for="range in computedRanges[teamNo]" :key="'svg-t' + teamNo + '-' + range.instanceId">
-                  <line 
-                    :x1="range.startX" 
-                    :y1="range.startY" 
-                    :x2="range.endX" 
-                    :y2="range.endY" 
-                    :stroke="range.color" 
-                    stroke-width="2.5" 
-                    stroke-dasharray="6,4" 
-                    opacity="0.7" 
-                  />
+                  <line :x1="range.startX" :y1="range.startY" :x2="range.endX" :y2="range.endY" :stroke="range.color" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.7" />
                   <circle :cx="range.endX" :cy="range.endY" r="4.5" :fill="range.color" />
-                  
-                  <path 
-                    v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" 
-                    :d="range.pathD" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <circle 
-                    v-else-if="range.shape === '원' && range.radius > 0" 
-                    :cx="range.drawX" 
-                    :cy="range.drawY" 
-                    :r="range.radius" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <rect 
-                    v-else-if="range.shape === '사각형' && range.isForward && range.width > 0" 
-                    :x="range.drawX" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <rect 
-                    v-else-if="range.shape === '사각형' && !range.isForward && range.width > 0" 
-                    :x="range.drawX - (range.width / 2)" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
+                  <path v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" :d="range.pathD" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <circle v-else-if="range.shape === '원' && range.radius > 0" :cx="range.drawX" :cy="range.drawY" :r="range.radius" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && range.isForward && range.width > 0" :x="range.drawX" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && !range.isForward && range.width > 0" :x="range.drawX - (range.width / 2)" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                 </g>
               </svg>
 
@@ -466,35 +255,14 @@
                   justifyContent: 'center'
                 }"
               >
-                <svg 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="#111111" 
-                  stroke-width="1.8" 
-                  stroke-linecap="round" 
-                  stroke-linejoin="round"
-                  style="filter: drop-shadow(0px 1px 2px rgba(255, 255, 255, 0.8)); pointer-events: none;"
-                >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0px 1px 2px rgba(255, 255, 255, 0.8)); pointer-events: none;">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                   <circle cx="12" cy="13" r="4" />
                 </svg>
               </div>
 
               <div class="team-box">
-                <div v-for="char in activeChars(teamNo)" 
-                  :key="char.instanceId" 
-                  class="char-card" 
-                  :class="{ 'selected-hero': selectedHeroName === char.name }"
-                  :id="'char-' + char.instanceId" 
-                  draggable="true" 
-                  @dragstart="onDragStart($event, char, teamNo)" 
-                  @drag="onDragging" 
-                  @click.stop="selectHero(char)"
-                  @contextmenu.prevent="removeHero(char, teamNo)" 
-                  :title="`${char.name}`" 
-                  :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars(teamNo)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, teamNo)" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, teamNo)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -503,7 +271,6 @@
             </div>
           </div>
 
-          <!-- [우측] 보스 격자판 -->
           <div class="boss-arena-section">
             <div class="boss-zone-header">
               <span class="boss-badge">{{ texts.arena.bossBadgeNightmare }}</span>
@@ -515,61 +282,11 @@
               
               <svg class="range-overlay-container boss-range-svg">
                 <g v-for="range in computedRanges[teamNo]" :key="'svg-boss-t' + teamNo + '-' + range.instanceId">
-                  <line 
-                    :x1="range.bossStartX" 
-                    :y1="range.startY" 
-                    :x2="range.bossEndX" 
-                    :y2="range.endY" 
-                    :stroke="range.color" 
-                    stroke-width="2.5" 
-                    stroke-dasharray="6,4" 
-                    opacity="0.7" 
-                  />
-                  
-                  <path 
-                    v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" 
-                    :d="range.pathD" 
-                    :transform="`translate(${range.bossDrawX - range.drawX}, 0)`"
-                    :fill="range.color" 
-                    fill-opacity="0.25" 
-                    :stroke="range.color" 
-                    stroke-width="2" 
-                  />
-                  
-                  <circle 
-                    v-else-if="range.shape === '원' && range.radius > 0" 
-                    :cx="range.bossDrawX" 
-                    :cy="range.drawY" 
-                    :r="range.radius" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-                    
-                  <rect 
-                    v-else-if="range.shape === '사각형' && range.isForward && range.width > 0" 
-                    :x="range.bossDrawX" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
-
-                  <rect 
-                    v-else-if="range.shape === '사각형' && !range.isForward && range.width > 0" 
-                    :x="range.bossDrawX - (range.width / 2)" 
-                    :y="range.drawY - (range.height / 2)" 
-                    :width="range.width" 
-                    :height="range.height" 
-                    :fill="range.color" 
-                    fill-opacity="0.22" 
-                    :stroke="range.color" 
-                    stroke-width="1.5" 
-                  />
+                  <line :x1="range.bossStartX" :y1="range.startY" :x2="range.bossEndX" :y2="range.endY" :stroke="range.color" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.7" />
+                  <path v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" :d="range.pathD" :transform="`translate(${range.bossDrawX - range.drawX}, 0)`" :fill="range.color" fill-opacity="0.25" :stroke="range.color" stroke-width="2" />
+                  <circle v-else-if="range.shape === '원' && range.radius > 0" :cx="range.bossDrawX" :cy="range.drawY" :r="range.radius" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && range.isForward && range.width > 0" :x="range.bossDrawX" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
+                  <rect v-else-if="range.shape === '사각형' && !range.isForward && range.width > 0" :x="range.bossDrawX - (range.width / 2)" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                 </g>
               </svg>
           
@@ -580,7 +297,6 @@
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -593,6 +309,7 @@
             </button>
           </div>
 
+          <!-- 버프 / 디버프 / 정보 3선 선택 탭 -->
           <div class="board-type-tab-menu" style="display: flex; gap: 6px;">
             <button :class="['type-tab-btn', { active: activeBoardType === 'buff' }]" @click="activeBoardType = 'buff'">
               {{ texts.statusBoard.typeBuff }}
@@ -600,9 +317,12 @@
             <button :class="['type-tab-btn', { active: activeBoardType === 'debuff' }]" @click="activeBoardType = 'debuff'">
               {{ texts.statusBoard.typeDebuff }}
             </button>
+            <button :class="['type-tab-btn', { active: activeBoardType === 'info' }]" @click="activeBoardType = 'info'">
+              캐릭터
+            </button>
           </div>
 
-          <!-- 아군 버프 현황판 -->
+          <!-- [1] 아군 버프 현황판 -->
           <div v-if="activeBoardType === 'buff'" class="buff-section-wrapper compact-section">
             <div class="section-title-bar">
               <h3>{{ texts.statusBoard.buffTitle }} <span class="selected-team-text">({{ getStatusTabLabel }})</span></h3>
@@ -634,8 +354,8 @@
             </div>
           </div>
 
-          <!-- 적군 디버프 현황판 -->
-          <div v-else class="debuff-section-wrapper compact-section">
+          <!-- [2] 적군 디버프 현황판 -->
+          <div v-else-if="activeBoardType === 'debuff'" class="debuff-section-wrapper compact-section">
             <div class="section-title-bar">
               <h3>{{ texts.statusBoard.debuffTitle }} <span class="selected-team-text">({{ getStatusTabLabel }})</span></h3>
               <span class="deactive-badge">{{ texts.statusBoard.debuffBadge }}</span>
@@ -665,12 +385,209 @@
               <div v-else class="empty-status-alert compact-alert">{{ texts.statusBoard.emptyDebuff }}</div>
             </div>
           </div>
+
+          <!-- [3] 캐릭터 상세 정보 현황판 -->
+          <div v-else-if="activeBoardType === 'info'" class="info-section-wrapper compact-section">
+            <div class="section-title-bar">
+              <h3>캐릭터 상세 정보</h3>
+              <span class="info-badge">INFO</span>
+            </div>
+            
+            <div class="vertical-scroll-board p-3">
+              <div v-if="selectedHeroDetail" class="hero-detail-container">
+                
+                <!-- 상단 프로필 요약 헤더 -->
+                <div class="profile-header-card">
+                  <div class="profile-avatar-box">
+                    <img 
+                      :src="getHeroImage(selectedHeroDetail.id)" 
+                      @error="handleImageError" 
+                      class="hero-detail-avatar" 
+                    />
+                    <div class="hero-header-text">
+                      <h4 class="hero-detail-title">{{ selectedHeroDetail.name }}</h4>
+                      <span class="hero-detail-code">ID: {{ selectedHeroDetail.id }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 기본 스킬/공격 정보 카드 -->
+                <div class="effect-group-box info-group">
+                  <div class="buff-card-list">
+                    <!-- 1. 일반공격 -->
+                    <div class="buff-item-card card-info">
+                      <div class="buff-item-left">
+                        <span class="skill-label">일반공격</span>
+                        <span v-if="selectedHeroDetail.normal_damage_name" class="buff-name text-truncate">
+                          {{ selectedHeroDetail.normal_damage_name }}
+                        </span>
+                        <span class="buff-val text-yellow">
+                          {{ selectedHeroDetail.normal_damage }}{{ selectedHeroDetail.normal_unit }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- 2. 치명타공격 -->
+                    <div class="buff-item-card card-info">
+                      <div class="buff-item-left">
+                        <span class="skill-label">치명타공격</span>
+                        <span v-if="selectedHeroDetail.crit_damage_name" class="buff-name text-truncate">
+                          {{ selectedHeroDetail.crit_damage_name }}
+                        </span>
+                        <span class="buff-val text-yellow">{{ selectedHeroDetail.crit_value }}
+                          <span v-if="selectedHeroDetail.crit_damage!= null && selectedHeroDetail.crit_damage > 0" class="buff-max-label">
+                            MAX {{ selectedHeroDetail.crit_damage }}{{ selectedHeroDetail.crit_unit }}
+                          </span>
+                        </span>
+                        <span class="slash-divider">/</span>
+                        <span class="buff-sub-val text-blue">사거리: {{ selectedHeroDetail.crit_range }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 3. 액티브스킬 -->
+                    <div class="buff-item-card card-info card-active-skill">
+                      <div class="buff-item-left">
+                        <!-- 좌측 고정 라벨 -->
+                        <span class="skill-label">액티브스킬</span>
+
+                        <!-- 우측 메인 영역 (2줄 구조) -->
+                        <div class="skill-details-wrapper">
+                          <!-- 1번째 줄: 스킬명 & 계수 / MAX 계수 -->
+                          <div class="info-row-primary">
+                            <span v-if="selectedHeroDetail.active_skill_name" class="buff-name text-truncate">
+                              {{ selectedHeroDetail.active_skill_name }}
+                            </span>
+                            <span class="buff-val text-red-main">{{ selectedHeroDetail.effect_value }}</span>
+                            
+                            <template v-if="selectedHeroDetail.active_damage && selectedHeroDetail.active_damage !== `${selectedHeroDetail.effect_value}${selectedHeroDetail.unit || '%'}`">
+                              <span class="slash-divider">/</span>
+                              <span class="buff-val text-red-max">
+                                MAX {{ selectedHeroDetail.active_damage }}
+                              </span>
+                            </template>
+                          </div>
+
+                          <!-- 2번째 줄: 범위, 상세, 사거리/쿨타임 메타 뱃지 -->
+                          <div class="info-row-secondary">
+                            <span class="meta-tag">{{ selectedHeroDetail.active_shape || '-' }}</span>
+                            <span class="meta-tag area-tag">{{ selectedHeroDetail.active_area || '-' }}</span>
+                            
+                            <div class="meta-stats">
+                              <span class="stat-item">
+                                <span class="stat-label">사거리:</span>
+                                <span class="stat-val text-yellow">{{ selectedHeroDetail.active_range }}</span>
+                              </span>
+                              <span class="stat-divider">|</span>
+                              <span class="stat-item">
+                                <span class="stat-label">쿨:</span>
+                                <span class="stat-val text-yellow">{{ selectedHeroDetail.active_cooldown }}</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 스킬 및 버프/디버프 상세 영역 -->
+                <div class="hero-buff-list-box mt-3">                
+                  <div v-if="selectedHeroDetail.buffs && selectedHeroDetail.buffs.length > 0" class="buff-category-wrapper">
+                    
+                    <!-- 1️⃣ 자신 버프 영역 -->
+                    <div v-if="getBuffsByCategory('SELF_BUFF').length > 0" class="effect-group-box self-group">
+                      <div class="group-header-label text-self">
+                        <span>👤 자신 버프</span>
+                      </div>
+                      <div class="buff-card-list">
+                        <div v-for="b in getBuffsByCategory('SELF_BUFF')" :key="b.buff_seq" class="buff-item-card card-self">
+                          <div class="buff-item-left">
+                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                            <span class="buff-val">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                            <!-- 🌟 최대수치 v-if 조건 추가 -->
+                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
+                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
+                            </span>
+                          </div>
+                          <div class="buff-item-right">
+                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+                            <span class="divider">|</span>
+                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+                            <span class="divider">|</span>
+                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 2️⃣ 아군 버프 영역 -->
+                    <div v-if="getBuffsByCategory('TEAM_BUFF').length > 0" class="effect-group-box team-group">
+                      <div class="group-header-label text-team">
+                        <span>🛡️ 아군 버프</span>
+                      </div>
+                      <div class="buff-card-list">
+                        <div v-for="b in getBuffsByCategory('TEAM_BUFF')" :key="b.buff_seq" class="buff-item-card card-team">
+                          <div class="buff-item-left">
+                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                            <span class="buff-val text-green">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                            <!-- 🌟 최대수치 v-if 조건 추가 -->
+                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
+                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
+                            </span>
+                          </div>
+                          <div class="buff-item-right">
+                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+                            <span class="divider">|</span>
+                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+                            <span class="divider">|</span>
+                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 3️⃣ 적군 디버프 영역 -->
+                    <div v-if="getBuffsByCategory('DEBUFF').length > 0" class="effect-group-box debuff-group">
+                      <div class="group-header-label text-debuff">
+                        <span>⚔️ 적군 디버프</span>
+                      </div>
+                      <div class="buff-card-list">
+                        <div v-for="b in getBuffsByCategory('DEBUFF')" :key="b.buff_seq" class="buff-item-card card-debuff">
+                          <div class="buff-item-left">
+                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                            <span class="buff-val text-red">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                            <!-- 🌟 최대수치 v-if 조건 추가 -->
+                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
+                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
+                            </span>
+                          </div>
+                          <div class="buff-item-right">
+                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+                            <span class="divider">|</span>
+                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+                            <span class="divider">|</span>
+                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                  <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
+                </div>
+              </div>
+
+              <div v-else class="empty-status-alert compact-alert">
+                {{ isLoadingHeroDetail ? '캐릭터 정보를 불러오는 중입니다...' : '전장에서 캐릭터를 선택하면 상세 정보가 표시됩니다.' }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
     </div>
 
-    <!-- ================= 최하단 영웅 보관함 ================= -->
+    <!-- 최하단 영웅 보관함 -->
     <div class="bottom-hero-pool-zone" :class="{ collapsed: isPoolCollapsed }">
       <div class="pool-toggle-header" @click="isPoolCollapsed = !isPoolCollapsed">
         <div class="left-controls">
@@ -806,7 +723,12 @@ const {
   onCameraDragStart,
   onCameraDragEnd,
   filteredEffectGroupedList,
-  filteredDebuffGroupedList
+  filteredDebuffGroupedList,
+  // 🌟 상세 정보 관련 변수 및 연동 핸들러 추가
+  selectedHeroDetail,
+  isLoadingHeroDetail,
+  getBuffsByCategory,
+  handleHeroSelect
 } = useDeckBuild(cfg);
 
 const headerText = computed(() => texts.header[props.boardCategory] || texts.header.nightmare);
@@ -825,4 +747,5 @@ const statusTabs = computed(() => {
 
 <style scoped>
 @import "../assets/styles/deck-build.css";
+
 </style>
