@@ -1456,56 +1456,97 @@ const calculateAllRanges = async () => {
 const selectedHeroDetailRaw = ref(null);
 const isLoadingHeroDetail = ref(false);
 
-// 2. 💡 [요청하신 부분] 템플릿(Vue HTML)에서 바로 바인딩 가능하도록 데이터를 정제하는 computed
 const selectedHeroDetail = computed(() => {
   if (!selectedHeroDetailRaw.value) return null;
 
-  const { buffs = [], ...heroBase } = selectedHeroDetailRaw.value;
+  const rawBuffs = selectedHeroDetailRaw.value.buffs || [];
+  const { buffs, ...heroBase } = selectedHeroDetailRaw.value;
 
-  // 1. 스킬 코드별 버프 추출
-  const normalSkill = buffs.find(b => b.skill_code === 'SKI01') || {};
-  const critSkill = buffs.find(b => b.skill_code === 'SKI02' && b.effect_code === 'SDC02') 
-                 || buffs.find(b => b.skill_code === 'SKI02') 
-                 || {};
-                
-  // 🌟 [수정] 액티브스킬(SKI03) 중에서 '공격력피해량(SDC01)' 효과를 가진 항목을 최우선 탐색
-  const activeSkill = buffs.find(b => b.skill_code === 'SKI03' && b.effect_code === 'SDC01') 
-                   || buffs.find(b => b.skill_code === 'SKI03') 
-                   || {};
+  // 문자열 공백/대소문자 무시 안전 탐색 함수
+  const findBuff = (skillCode, effectCode) => {
+    return rawBuffs.find(b => {
+      const matchSkill = String(b.skill_code || '').trim().toUpperCase() === skillCode.toUpperCase();
+      if (!effectCode) return matchSkill;
+      const matchEffect = String(b.effect_code || '').trim().toUpperCase() === effectCode.toUpperCase();
+      return matchSkill && matchEffect;
+    });
+  };
 
-  // 스킬 범위/형태 문자열 가공 함수 (예: 2m * 3m)
+  // 1. 일반공격 (SKI01)
+  const normalSkill = findBuff('SKI01') || {};
+
+  // 🌟 2. 치명타공격 (SKI02) - SDC02 엄격 탐색 (없으면 empty)
+  const critSkillSdc02 = findBuff('SKI02', 'SDC02');
+  const critSkillBase = findBuff('SKI02') || {};
+
+  // 🌟 3. 액티브스킬 (SKI03) - SDC01 엄격 탐색 (|| findBuff('SKI03') 제거!)
+  const activeSkillSdc01 = findBuff('SKI03', 'SDC01');
+  const activeSkillBase = findBuff('SKI03') || {};
+
+  // 범위 포맷 함수
   const formatArea = (skill) => {
-    if (skill.range_x && skill.range_y) {
-      return `${skill.range_x}m*${skill.range_y}m`;
-    }
-    if (skill.range_detail && String(skill.range_detail).trim() !== '') {
-      return skill.range_detail;
-    }
+    if (!skill) return '-';
+    if (skill.range_x && skill.range_y) return `${skill.range_x}m*${skill.range_y}m`;
+    if (skill.range_detail && String(skill.range_detail).trim() !== '') return skill.range_detail;
     return '-';
   };
 
+  // ----------------------------------------------------
+  // 🌟 치명타 피해량 (SDC02) - 존재할 때만 값 바인딩
+  // ----------------------------------------------------
+  const critName = critSkillSdc02 ? (critSkillSdc02.effect_code_name || critSkillSdc02.buff_name || critSkillSdc02.name || '') : '';
+  const critVal = critSkillSdc02 && critSkillSdc02.effect_value ? `${critSkillSdc02.effect_value}${critSkillSdc02.unit || '%'}` : '-';
+  const critMaxDmg = critSkillSdc02 ? (critSkillSdc02.calculated_value || (critSkillSdc02.effect_value ? `${critSkillSdc02.effect_value}${critSkillSdc02.unit || '%'}` : '-')) : '-';
+  const critRange = (critSkillBase.range !== null && critSkillBase.range !== undefined) ? `${critSkillBase.range}` : '-';
+
+  // ----------------------------------------------------
+  // 🌟 액티브 피해량 (SDC01) - SDC01이 없으면 '-'로 안전 처리
+  // ----------------------------------------------------
+  const activeName = activeSkillSdc01 ? (activeSkillSdc01.effect_code_name || activeSkillSdc01.buff_name || activeSkillSdc01.name || '') : '-';
+  const activeVal = activeSkillSdc01 && activeSkillSdc01.effect_value ? `${activeSkillSdc01.effect_value}${activeSkillSdc01.unit || '%'}` : '-';
+  const activeMaxDmg = activeSkillSdc01 ? (activeSkillSdc01.calculated_value || (activeSkillSdc01.effect_value ? `${activeSkillSdc01.effect_value}${activeSkillSdc01.unit || '%'}` : '-')) : '-';
+
   return {
     ...heroBase,
-    buffs: buffs, // Vue Template의 v-if="selectedHeroDetail.buffs" 조건 통과용
+    buffs: rawBuffs,
 
     // 1. 일반공격
+    normal_damage_name: normalSkill.effect_code_name || normalSkill.buff_name || '',
     normal_damage: normalSkill.calculated_value || (normalSkill.effect_value ? `${normalSkill.effect_value}${normalSkill.unit || '%'}` : '0%'),
 
-    // 2. 치명타공격
-    crit_value: critSkill.effect_value ? `${critSkill.effect_value}${critSkill.unit || '%'}` : '-',
-    crit_damage: critSkill.calculated_value || (critSkill.effect_value ? `${critSkill.effect_value}${critSkill.unit || '%'}` : '0%'),
-    crit_range: critSkill.range ? `${critSkill.range}` : (critSkill.range === 0 ? '0' : '-'),
+    // 2-1. 치명타 기본 필드
+    crit_damage_name: critName,
+    crit_value: critVal,
+    crit_damage: critMaxDmg,
+    crit_unit: critSkillSdc02 ? (critSkillSdc02.unit || '%') : '%',
+    crit_range: critRange,
 
-    // 3. 액티브스킬 (SDC01 공격력피해량 정보 우선 적용)
-    active_skill_name: activeSkill.effect_code_name,
-    effect_value: activeSkill.effect_value ? `${activeSkill.effect_value}${activeSkill.unit || '%'}` : '-',
-    active_damage: activeSkill.calculated_value || (activeSkill.effect_value ? `${activeSkill.effect_value}${activeSkill.unit || '%'}` : '0%'),
-    active_shape: activeSkill.range_type || activeSkill.range_shape || '-',
-    active_area: formatArea(activeSkill),
-    
-    // 🌟 단위(m, 초) 및 0값/null 안전 처리 추가
-    active_range: (activeSkill.range !== null && activeSkill.range !== undefined) ? `${activeSkill.range}` : '-',
-    active_cooldown: (activeSkill.cooldown !== null && activeSkill.cooldown !== undefined) ? `${activeSkill.cooldown}초` : '-'
+    // 2-2. 치명타 SDC02 전용 필드
+    critSdc02_damage_name: critName,
+    critSdc02_value: critVal,
+    critSdc02_damage: critMaxDmg,
+    critSdc02_unit: critSkillSdc02 ? (critSkillSdc02.unit || '%') : '%',
+    critSdc02_range: critRange,
+
+    // 3-1. 액티브 기본 필드
+    active_skill_name: activeName,
+    effect_value: activeVal,
+    active_damage: activeMaxDmg,
+    unit: activeSkillSdc01 ? (activeSkillSdc01.unit || '%') : '%',
+    active_shape: activeSkillBase.range_type || activeSkillBase.range_shape || '-',
+    active_area: formatArea(activeSkillBase),
+    active_range: (activeSkillBase.range !== null && activeSkillBase.range !== undefined) ? `${activeSkillBase.range}` : '-',
+    active_cooldown: (activeSkillBase.cooldown !== null && activeSkillBase.cooldown !== undefined) ? `${activeSkillBase.cooldown}초` : '-',
+
+    // 3-2. 액티브 SDC01 전용 필드
+    activeSdc01_skill_name: activeName,
+    activeSdc01_effect_value: activeVal,
+    activeSdc01_damage: activeMaxDmg,
+    activeSdc01_unit: activeSkillSdc01 ? (activeSkillSdc01.unit || '%') : '%',
+    activeSdc01_shape: activeSkillBase.range_type || activeSkillBase.range_shape || '-',
+    activeSdc01_area: formatArea(activeSkillBase),
+    activeSdc01_range: (activeSkillBase.range !== null && activeSkillBase.range !== undefined) ? `${activeSkillBase.range}` : '-',
+    activeSdc01_cooldown: (activeSkillBase.cooldown !== null && activeSkillBase.cooldown !== undefined) ? `${activeSkillBase.cooldown}초` : '-'
   };
 });
 
