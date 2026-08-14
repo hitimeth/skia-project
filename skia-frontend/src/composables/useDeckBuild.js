@@ -1464,8 +1464,10 @@ const selectedHeroDetail = computed(() => {
 
   // 1. 스킬 코드별 버프 추출
   const normalSkill = buffs.find(b => b.skill_code === 'SKI01') || {};
-  const critSkill = buffs.find(b => b.skill_code === 'SKI02') || {};
-  
+  const critSkill = buffs.find(b => b.skill_code === 'SKI02' && b.effect_code === 'SDC02') 
+                 || buffs.find(b => b.skill_code === 'SKI02') 
+                 || {};
+                
   // 🌟 [수정] 액티브스킬(SKI03) 중에서 '공격력피해량(SDC01)' 효과를 가진 항목을 최우선 탐색
   const activeSkill = buffs.find(b => b.skill_code === 'SKI03' && b.effect_code === 'SDC01') 
                    || buffs.find(b => b.skill_code === 'SKI03') 
