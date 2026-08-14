@@ -389,7 +389,7 @@
           <!-- [3] 캐릭터 상세 정보 현황판 -->
           <div v-else-if="activeBoardType === 'info'" class="info-section-wrapper compact-section">
             <div class="section-title-bar">
-              <h3>캐릭터 상세 정보</h3>
+              <h3>캐릭터 버프 상세 정보</h3>
               <span class="info-badge">INFO</span>
             </div>
             
@@ -411,63 +411,72 @@
                   </div>
                 </div>
 
-                <!-- 기본 스킬/공격 정보 카드 (중복 구조 완전 제거 및 정돈) -->
-                <div class="effect-group-box info-group mt-3">
+                <!-- 기본 스킬/공격 정보 카드 -->
+                <div class="effect-group-box info-group">
                   <div class="buff-card-list">
                     
                     <!-- 1. 일반공격 -->
                     <div class="buff-item-card card-info">
                       <div class="buff-item-left">
                         <span class="skill-label">일반공격</span>
-                        <span v-if="selectedHeroDetail.normal_damage_name" class="buff-name text-truncate">
-                          {{ selectedHeroDetail.normal_damage_name }}
-                        </span>
-                        <span class="buff-val text-yellow">
-                          {{ selectedHeroDetail.normal_damage }}
-                        </span>
+                        <div class="skill-details-wrapper">
+                          <div class="info-row-primary">
+                            <span class="buff-name text-truncate">
+                              {{ selectedHeroDetail.normal_damage_name || '일반공격' }}
+                            </span>
+                            <span class="buff-val text-yellow">
+                              {{ selectedHeroDetail.normal_damage }}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <!-- 2. 치명타공격 (critSdc02_ 전용 필드 바인딩) -->
+                    <!-- 2. 치명타공격 (회색 박스 배지 형태) -->
                     <div class="buff-item-card card-info">
                       <div class="buff-item-left">
                         <span class="skill-label label-crit">치명타공격</span>
-                        
-                        <span v-if="selectedHeroDetail.critSdc02_damage_name" class="buff-name text-truncate">
-                          {{ selectedHeroDetail.critSdc02_damage_name }}
-                        </span>
-                        
-                        <span class="buff-val text-yellow">
-                          {{ selectedHeroDetail.critSdc02_value }}
-                          <span 
-                            v-if="selectedHeroDetail.critSdc02_damage && selectedHeroDetail.critSdc02_damage !== '0%' && selectedHeroDetail.critSdc02_damage !== '-'" 
-                            class="buff-max-label"
-                          >
-                            MAX {{ selectedHeroDetail.critSdc02_damage }}
-                          </span>
-                        </span>
-
-                        <span class="slash-divider">/</span>
-                        <span class="buff-sub-val text-blue">사거리: {{ selectedHeroDetail.critSdc02_range }}</span>
+                        <div class="skill-details-wrapper">
+                          <div class="info-row-primary">
+                            <span class="buff-name text-truncate">
+                              {{ selectedHeroDetail.critSdc02_damage_name || '치명타피해량' }}
+                            </span>
+                            
+                            <!-- 노란색 치명타 기본 수치 -->
+                            <span class="buff-val text-yellow">
+                              {{ selectedHeroDetail.critSdc02_value }}
+                            </span>
+                            
+                            <!-- 🌟 치명타 전용 회색 박스 MAX 배지 -->
+                            <span 
+                              v-if="selectedHeroDetail.critSdc02_damage && selectedHeroDetail.critSdc02_damage !== '0%' && selectedHeroDetail.critSdc02_damage !== '-'" 
+                              class="buff-max-badge"
+                            >
+                              MAX {{ selectedHeroDetail.critSdc02_damage }}
+                            </span>
+                            
+                            <span class="slash-divider">/</span>
+                            <span class="buff-sub-val text-blue">사거리: {{ selectedHeroDetail.critSdc02_range }}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <!-- 3. 액티브스킬 (activeSdc01_ 전용 필드 바인딩) -->
+                    <!-- 3. 액티브스킬 (슬래시 + 빨간색 텍스트 형태) -->
                     <div class="buff-item-card card-info card-active-skill">
                       <div class="buff-item-left">
                         <span class="skill-label label-active">액티브스킬</span>
-
                         <div class="skill-details-wrapper">
+                          
                           <div class="info-row-primary">
-                            <span v-if="selectedHeroDetail.activeSdc01_skill_name" class="buff-name text-truncate">
-                              {{ selectedHeroDetail.activeSdc01_skill_name }}
-                            </span>
+                            <span class="buff-name text-truncate">{{ selectedHeroDetail.activeSdc01_skill_name || '공격력피해량' }}</span>
                             
+                            <!-- 빨간색 액티브 기본 수치 -->
                             <span class="buff-val text-red-main">{{ selectedHeroDetail.activeSdc01_effect_value }}</span>
                             
+                            <!-- 🌟 액티브 전용 빨간색 MAX 텍스트 -->
                             <template v-if="selectedHeroDetail.activeSdc01_damage && selectedHeroDetail.activeSdc01_damage !== '-' && selectedHeroDetail.activeSdc01_damage !== selectedHeroDetail.activeSdc01_effect_value">
-                              <span class="slash-divider">/</span>
-                              <span class="buff-val text-red-max">
+                              <span class="buff-val buff-max-badge">
                                 MAX {{ selectedHeroDetail.activeSdc01_damage }}
                               </span>
                             </template>
@@ -489,6 +498,7 @@
                               </span>
                             </div>
                           </div>
+
                         </div>
                       </div>
                     </div>

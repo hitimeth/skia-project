@@ -488,25 +488,6 @@
   gap: 6px;
 }
 
-/* 버프/디버프 카드 최신 통합 스타일 (가로 정렬 및 축소 방지) */
-.buff-item-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 8px 12px;
-  margin-bottom: 2px;
-  background-color: #1e293b;
-  border-radius: 6px;
-  border: 1px solid #2b2f3a;
-  border-left: 4px solid #64748b;
-  font-size: 0.60rem;
-  box-sizing: border-box;
-}
-
-.buff-item-card:hover { border-color: #475569; }
-
 /* 카드 상단 공격 정보 스타일 및 액티브 스킬 전용 스타일 */
 .card-info {
   background: #131b2e;
@@ -549,13 +530,21 @@
 .card-info .buff-name {
   font-weight: 700;
   color: #e2e8f0;
-  font-size: 11px !important;
-  max-width: 35%;
+  font-size: 10px !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 85px;
+  
+  /* 🌟 170px -> 110px로 축소하여 수치 위치를 왼쪽으로 당김 */
+  width: 110px !important;
+  min-width: 110px !important;
+  flex-shrink: 0 !important;
+}
+
+/* 수치 텍스트 시작 위치 유연성 확보 */
+.card-info .buff-val {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 /* 오른쪽 2줄 레이아웃 컨테이너 및 행 스타일 */
@@ -626,13 +615,13 @@
 .card-active-skill .buff-item-left {
   display: flex !important;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
 }
 
 /* 수치 및 서브값 스타일 */
 .buff-val {
-  font-size: 11.5px !important;
+  font-size: 10px !important;
   font-weight: 800;
   white-space: nowrap;
   flex-shrink: 0;
@@ -995,7 +984,7 @@
 /* 버프 카드의 메인 레이아웃 */
 .buff-item-card {
   display: flex;
-  align-items: center;
+  align-items: inherit;
   justify-content: space-between;
   padding: 10px 14px;
   background-color: #1e2330; /* 예시 배경색 */
@@ -1003,6 +992,7 @@
   margin-bottom: 8px;
   gap: 12px; /* 좌우 영역 간격 확보 */
 }
+.buff-item-card:hover { border-color: #475569; }
 
 /* 1. 좌측 영역 (이름, 수치, MAX 라벨) */
 .buff-item-left {
@@ -1019,7 +1009,7 @@
   font-weight: 600;
   color: #ffffff;
   min-width: 0; /* text-truncate가 작동하려면 필수 */
-  flex: 1 1 auto; /* 공간이 부족하면 줄어들도록 설정 */
+  flex: 0 1 auto; /* 공간이 부족하면 줄어들도록 설정 */
 }
 
 /* 말줄임표 처리 (Bootstrap text-truncate 보완) */
@@ -1089,6 +1079,46 @@
 .badge-active {
   background-color: #3498db;
   color: #ffffff;
+}
+/* 1. 치명타 전용 회색 박스 MAX 배지 (이미지의 회색 테두리 박스 스타일) */
+.buff-max-badge {
+  font-size: 9.5px !important;
+  color: #94a3b8 !important; /* 회색 텍스트 */
+  background-color: #1e293b !important; /* 약간 밝은 어두운 회색 배경 */
+  border: 1px solid #334155 !important; /* 회색 테두리 */
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+/* 2. 액티브 전용 빨간색 수치 및 MAX 텍스트 */
+.text-red-main {
+  color: #f87171 !important; /* 액티브 일반 계수 (연한 빨강/장미색) */
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+}
+
+.text-red-max {
+  color: #ef4444 !important; /* 액티브 MAX 계수 (진한 빨강/강조) */
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+}
+
+/* 스킬명 라벨 자리 (왼쪽 당김 유지) */
+.card-info .buff-name {
+  font-weight: 700;
+  color: #e2e8f0;
+  font-size: 11px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 110px !important;
+  min-width: 110px !important;
+  flex-shrink: 0 !important;
 }
 
 /* ===================================================
