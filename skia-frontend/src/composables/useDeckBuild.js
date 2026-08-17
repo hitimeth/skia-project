@@ -918,15 +918,80 @@ const openBuffModal = (options = {}) => {
       alert('저장 중 오류가 발생했습니다.');
     }
   };
-  const MASTER_EFFECT_ORDER = [
-    'UTC25', 'UTC26', 'STB03', 'STB07', 'STB08', 'STB22', 'STB01', 'STB25', 
-    'STB10', 'STB12', 'STB24', 'STB13', 'STB16', 'STB21', 'STB05', 
-    'STB26', 'STB19', 'STB14', 'SYG01', 'SYG02'
+  const MASTER_EFFECT_ORDER1 = [
+    'UTC25', 'UTC26', 'STB03', 
+    'STB07', 'STB08', 'STB22', 
+    'STB01', 'STB25', 'STB10', 
+    'STB12', 'STB24', 'STB13', 
+    'STB16', 'STB21', 'STB05', 
+    'STB26', 'STB19', 'STB14', 
+    'SYG01', 'SYG02'
   ];
 
+    const MASTER_EFFECT_ORDER = [
+    'UTC25', 'STB08', 'STB03', 
+    'UTC26', 'STB22', 'STB10', 
+    'STB07', 'STB13', 'STB12', 
+    'STB01', 'STB16', 'STB24', 
+    'STB25', 'STB21', 'STB19', 
+    'STB05', 'STB14', 'SYG01', 
+    'STB26', 'STB20', 'SYG02',
+    'DGB01', 'DGB02', 'DGB03',
+    'DGB04', 'DGB05', 'DGB06',
+    'DGB07', 'DGB08', 'DGB09',
+    'DGB10', 'DGB11', 'DGB12',
+    'DGB13', 'DGB14', 'DGB15',
+    'DGB16', 'DGB17', 'DGB18',
+    'DGB19', 'DGB20', 'DGB21',
+    'DGB22', 'DGB23', 'DGB24', 
+    'DGB25', 'DGB26'          
+  ];
+
+/* 
+stat_buff_code	STB08	치명타 피해 증가	4002	치피+
+stat_buff_code	STB22	최종 치명타 피해 증가	4010	최치피+
+stat_buff_code	STB18	추가 피해 확률 저항 증가	4038	추피확저+
+stat_buff_code	STB13	추가 피해 확률 증가	4007	추피확+
+stat_buff_code	STB16	추가 피해 증가	4008	추피+
+stat_buff_code	STB21	최종 추가 피해량 증가	4002	최추피+
+stat_buff_code	STB14	받는 피해량 감소	4034	받피-
+stat_buff_code	STB20	보스 몬스터 추가 피해량 증가	4014	보스추피+
+
+damage_buff_code	DGB01	특정 디버프 대상 피해량 증가	4101	특디피+
+damage_buff_code	DGB02	길드 보스전 대상 피해량 증가	4102	길보피+
+damage_buff_code	DGB03	출혈 대상 피해량 증가	4103	출혈피+
+damage_buff_code	DGB04	화상 대상 피해량 증가	4104	화상피+
+damage_buff_code	DGB05	중독 대상 피해량 증가	4105	중독피+
+damage_buff_code	DGB06	동상 대상 피해량 증가	4106	동상피+
+damage_buff_code	DGB07	기절 대상 피해량 증가	4107	기절피+
+damage_buff_code	DGB08	마비 대상 피해량 증가	4108	마비피+
+damage_buff_code	DGB09	저주 대상 피해량 증가	4109	저주피+
+damage_buff_code	DGB10	침묵 대상 피해량 증가	4110	침묵피+
+damage_buff_code	DGB11	방어형 대상 피해량 증가	4111	방어피+
+damage_buff_code	DGB12	근거리형 대상 피해량 증가	4112	근거리피+
+damage_buff_code	DGB13	원거리형 대상 피해량 증가	4113	원거리피+
+damage_buff_code	DGB14	기능형 대상 피해량 증가	4114	기능형피+
+damage_buff_code	DGB15	악몽 대상 피해량 증가	4115	악몽피증+
+damage_buff_code	DGB16	풍화 대상 피해량 증가	4116	풍화피증+
+damage_buff_code	DGB17	결빙 대상 피해량 증가	4117	결빙피증+
+damage_buff_code	DGB18	군중제어 효과 면역 대상 피해량 증가	4118	군제면피증+
+damage_buff_code	DGB19	부식 대상 피해량 증가	4119	부식피증+
+damage_buff_code	DGB20	혼돈의 유적 대상 피해량 증가	4120	혼돈피증+
+damage_buff_code	DGB21	지속 피해량 증가:출혈	4121	출혈지피+
+damage_buff_code	DGB22	지속 피해량 증가:화상	4122	화상지피+
+damage_buff_code	DGB23	지속 피해량 증가:중독	4123	중독지피+
+damage_buff_code	DGB24	지속 피해량 증가:동상	4124	동상지피+
+damage_buff_code	DGB25	지속 피해량 증가:풍화	4125	풍화지피+
+damage_buff_code	DGB26	지속 피해량 증가:부식	4126	부식지피+
+*/
+
   const MASTER_EFFECT_CCCDOT_ORDER = [
-    'DOT01', 'DOT02', 'DOT03', 'DOT04', 'DOT05', 'DOT06', 'CCC01', 'CCC02', 
-    'CCC03', 'CCC04', 'CCC05', 'CCC06', 'CCC07', 'CCC08', 'CCC09', 'CCC10', 'CCC11'
+    'DOT01', 'DOT02', 'DOT03', 
+    'DOT04', 'DOT05', 'DOT06', 
+    'CCC01', 'CCC02', 'CCC03',
+    'CCC04', 'CCC05', 'CCC06',
+    'CCC07', 'CCC08', 'CCC09',
+     'CCC10', 'CCC11'
   ];
 
   const MASTER_EFFECT_DEBUFF_ORDER = [
