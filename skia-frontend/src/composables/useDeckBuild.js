@@ -991,14 +991,61 @@ damage_buff_code	DGB26	지속 피해량 증가:부식	4126	부식지피+
     'CCC01', 'CCC02', 'CCC03',
     'CCC04', 'CCC05', 'CCC06',
     'CCC07', 'CCC08', 'CCC09',
-     'CCC10', 'CCC11'
+    'CCC10', 'CCC11'
+  ];
+
+  const MASTER_EFFECT_DEBUFF_ORDER1 = [
+    'SDB10', 'SDB17', 'SDB03', 
+    'SDB21', 'SDB20', 'SDB07', 
+    'SDB19', 'SDB08', 'SDB09', 
+    'SDB06', 'SDB04', 'SDB16', 
+    'SDB18', 'SDB05', 'SDB12', 
+    'SDB22', 'SDB23', 'SDB15', 
+    'SDB14'
   ];
 
   const MASTER_EFFECT_DEBUFF_ORDER = [
-    'SDB10', 'SDB17', 'SDB03', 'SDB21', 'SDB20', 'SDB07', 'SDB19', 'SDB08', 'SDB09', 
-    'SDB06', 'SDB04', 'SDB16', 'SDB18', 'SDB05', 'SDB12', 'SDB22', 'SDB23', 
-    'SDB15', 'SDB14'
-  ];
+    'SDB08', 'SDB09', 'SDB12', 
+    'SDB10', 'SDB24', 'SDB11', 
+    'SDB07', 'SDB04', 'SDB13', 
+    'SDB19', 'SDB05', 'SDB16', 
+    'SDB03', 'SDB06', 'SDB14', 
+    'SDB21', 'SDB20', 'SDB17', 
+    'SDB02', 'SDB22', 'SDB15', 
+    'SDB18', 'SDB23', 'SDB25', 
+    'SDB30', 'etc1','etc2'
+  ];  
+
+/*
+stat_debuff_code	SDB08	치명타 확률 감소	4208	치확-
+stat_debuff_code	SDB10	치명타 확률 저항 감소	4210	치확저-
+stat_debuff_code	SDB07	회피 감소	4202	회피-
+stat_debuff_code	SDB19	최종 회피 감소	4203	최회-
+stat_debuff_code	SDB03	방어력 감소	4201	방어력-
+stat_debuff_code	SDB21	최종 방어력 감소	4205	최방-
+stat_debuff_code	SDB02	공격력 감소	4210	공격력-
+stat_debuff_code	SDB18	최종 공격력 감소	4218	최공-
+
+stat_debuff_code	SDB09	치명타 피해 감소	4209	치피-
+stat_debuff_code	SDB24	최종 치명타 피해 감소	4208	최치피-
+stat_debuff_code	SDB04	공격속도 감소	4204	공속-
+stat_debuff_code	SDB05	이동속도 감소	4205	이속-
+stat_debuff_code	SDB06	명중 감소	4203	명중-
+stat_debuff_code	SDB20	최종 명중 감소	4204	최명-
+stat_debuff_code	SDB22	최종 생명력 감소	4206	최생-
+stat_debuff_code	SDB23	최종 생명력 회복 감소	4207	최생회-
+
+stat_debuff_code	SDB12	경감 확률 감소	4212	경확-
+stat_debuff_code	SDB11	약점 공격 확률 감소	4211	약공확-
+stat_debuff_code	SDB13	약점 공격 피해 감소	4213	약공피-
+stat_debuff_code	SDB16	약점 공격 확률 저항 감소	4216	약공확저-
+stat_debuff_code	SDB14	추가 피해 확률 감소	4214	추피확-
+stat_debuff_code	SDB17	추가 피해 확률 저항 감소	4217	추피확저-
+stat_debuff_code	SDB15	받는 피해량 증가	4215	받피+
+stat_debuff_code	SDB25	최종 약점 공격 피해 감소	4219	최약피-
+stat_debuff_code	SDB30	특정 디버프	4209	특정디버프
+*/
+
 
   const effectGroupedList = computed(() => {
     const groups = {};
