@@ -202,23 +202,15 @@
                     </option>
                   </select>
                 </div>
-                <!-- ✨ [신규 추가] 버프 조건 (공통코드 또는 직접입력) -->
+                <!-- 버프 조건 선택 -->
                   <div class="info-row-condition" style="margin-bottom: 4px; display: flex; align-items: center;">
                     <span class="info-label" style="width: 55px;">버프조건:</span>
-                    <!-- Option A: 공통코드(BC) 선택형 셀렉트 박스일 경우 -->
                     <select class="grid-select-box full-width-select" v-model="buff.buff_condition">
                       <option value="">-- 버프 조건 선택 --</option>
                       <option v-for="c in filterCodes('BFC')" :key="c.code_id" :value="c.code_id">
                         {{ c.code_name }} ({{ c.code_id }})
                       </option>
                     </select>
-
-                    <!-- Option B: 셀렉트 박스가 아닌 텍스트 직접 입력 방식일 경우 (Option A 대신 선택 사용) -->
-                    <!--
-                    <span contenteditable="true" class="editable inline-block-edit" style="width: calc(100% - 60px);" @blur="buff.buff_condition = $event.target.textContent.trim()">
-                      {{ buff.buff_condition }}
-                    </span>
-                    -->
                   </div>                
               </td>
               <td style="padding: 6px; text-align: left; vertical-align: middle;">
@@ -232,11 +224,9 @@
                   <span class="info-label">지속:</span>
                   <span contenteditable="true" class="editable inline-edit" @blur="buff.effect_duration = $event.target.textContent.trim()">{{ buff.effect_duration }}</span>
                   <span class="info-split">/</span>
-                  <!-- 신규 추가: 타격수 -->
                   <span class="info-label">타격수:</span>
                   <span contenteditable="true" class="editable inline-edit" @blur="buff.hit_count = $event.target.textContent.trim()">{{ buff.hit_count }}</span>
                   <span class="info-split">/</span>
-                  <!-- 신규 추가: 최대중첩 -->
                   <span class="info-label">최대중첩:</span>
                   <span contenteditable="true" class="editable inline-edit" @blur="buff.max_stack = $event.target.textContent.trim()">{{ buff.max_stack }}</span>
                 </div>
@@ -436,7 +426,6 @@ export default {
               <thead>
                 <tr>
                   <th style="width:15%">그룹</th>
-                  <!-- 🌟 정렬 기능 헤더 -->
                   <th style="width:20%" class="sortable" onclick="toggleSort('code_id')">코드 ID <span id="sort_icon_code_id">🔽</span></th>
                   <th style="width:25%" class="sortable" onclick="toggleSort('code_name')">코드 이름 <span id="sort_icon_code_name">🔽</span></th>
                   <th style="width:15%">짧은 명칭</th>
@@ -784,6 +773,7 @@ export default {
       const duplicatedRow = JSON.parse(JSON.stringify(sourceBuff));
       duplicatedRow.buff_seq = null;        
       duplicatedRow.master_id = this.selectedMasterId; 
+      duplicatedRow.char_id = this.charForm.char_id;
       duplicatedRow.isNew = true; 
       duplicatedRow.searchKeyword = ''; 
       this.buffs.splice(index + 1, 0, duplicatedRow);
@@ -824,6 +814,8 @@ export default {
         console.error("캐릭터 상세 로드 실패:", error);
       }
     },
+
+    // 🌟 기본 정보 수정 시 skia_char_buff까지 일괄 반영되도록 백엔드 호출 후 데이터 새로고침
     async saveBaseInfo() {
       const masterId = this.selectedMasterId || this.charForm.master_id;
 
@@ -850,8 +842,9 @@ export default {
         });
 
         if (res.ok) {
-          alert("기본 정보 수정 완료!");
+          alert("기본 정보 및 버프 캐릭터 ID 수정 완료!");
           this.fetchCharacters();
+          this.fetchCharDetail(); // 🌟 DB 트랜잭션 처리 결과 목록 갱신
         } else {
           const errText = await res.text();
           alert(`저장 실패: ${errText}`);
@@ -860,6 +853,8 @@ export default {
         console.error("저장 중 통신 에러:", err);
       }
     },
+
+    // 🌟 스킬 및 버프 일괄 저장 (char_id 동기화 보완)
     async saveModifiedBuffsBatch() {
       if (this.buffs.length === 0) {
         alert('저장할 데이터가 존재하지 않습니다.');
@@ -879,8 +874,14 @@ export default {
 
       try {
         for (const buff of this.buffs) {
+          // 최신 char_id 파라미터 부여
+          const payload = { 
+            ...buff, 
+            master_id: this.selectedMasterId, 
+            char_id: this.charForm.char_id 
+          };
+
           if (buff.isNew) {
-            const payload = { ...buff, master_id: this.selectedMasterId, char_id: this.charForm.char_id };
             const response = await fetch(`${this.BASE_URL}/api/char_buff_insert`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -899,7 +900,7 @@ export default {
             const response = await fetch(`${this.BASE_URL}/api/char_buff_update`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(buff)
+              body: JSON.stringify(payload)
             });
             const data = await response.json();
             if (data.success) {
@@ -920,14 +921,22 @@ export default {
         console.error('일괄 저장 중 에러:', error);
       }
     },
+
+    // 🌟 스킬 및 버프 단건 저장 (char_id 동기화 보완)
     async saveBuffRow(buff) {
       if (!this.selectedMasterId || !this.charForm.char_id) {
         alert('상단에서 캐릭터 정보를 먼저 로드해 주세요.');
         return;
       }
+
+      const payload = { 
+        ...buff, 
+        master_id: this.selectedMasterId, 
+        char_id: this.charForm.char_id 
+      };
+
       try {
         if (buff.isNew) {
-          const payload = { ...buff, master_id: this.selectedMasterId, char_id: this.charForm.char_id };
           const response = await fetch(`${this.BASE_URL}/api/char_buff_insert`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -950,7 +959,7 @@ export default {
           const response = await fetch(`${this.BASE_URL}/api/char_buff_update`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buff)
+            body: JSON.stringify(payload)
           });
           const data = await response.json();
           if (data.success) {

@@ -217,24 +217,13 @@ app.get('/api/char', async (req, res) => {
 // 2. 캐릭터 상세 및 스킬 정보 조회 (WHERE master_id 기준)
 app.get('/api/char_detail/:master_id', async (req, res) => {
   const { master_id } = req.params;
-  //console.log("요청받은 master_id:", master_id);
 
-  // 💡 [안전 장치 추가] master_id가 공백이거나 비어있는지 검증
   if (!master_id || master_id.trim() === '') {
     console.warn(`⚠️ 올바르지 않은 master_id 요청 사전 차단`);
     return res.status(400).send('올바르지 않은 캐릭터 마스터 ID 형식입니다.');
   }
 
-  // (선택 사항) 만약 무조건 MSTR_ 로 시작하는 규격이 맞다면 아래 정규식 검증을 켜두셔도 좋습니다.
-  /*
-  if (!/^MSTR_\d+$/.test(master_id)) {
-    console.warn(`⚠️ 규격에 맞지 않는 master_id 요청 사전 차단: "${master_id}"`);
-    return res.status(400).send('올바르지 않은 마스터 ID 포맷입니다.');
-  }
-  */
-
   try {
-    // 🎯 숫자로 파싱하지 않고, 들어온 문자열 파라미터(master_id)를 그대로 전달합니다.
     const baseResult = await pool.query(
       'SELECT * FROM skia_char WHERE master_id = $1', 
       [master_id]
@@ -262,6 +251,7 @@ app.get('/api/char_detail/:master_id', async (req, res) => {
   }
 });
 
+// 🌟 캐릭터 기본정보 수정 시 skia_char_buff 및 skia_char_effect의 char_id도 함께 업데이트 (트랜잭션 적용)
 app.patch('/api/char_detail/:master_id', async (req, res) => {
   const { master_id } = req.params;
   
@@ -277,7 +267,16 @@ app.patch('/api/char_detail/:master_id', async (req, res) => {
     });
   }
 
+  const client = await pool.connect(); // 트랜잭션용 커넥션 생성
+
   try {
+    await client.query('BEGIN'); // 🚀 트랜잭션 시작
+
+    // 0. 기존 skia_char에서 old char_id 가져오기 (skia_char_effect 동기화용)
+    const oldCharRes = await client.query('SELECT char_id FROM skia_char WHERE master_id = $1', [master_id]);
+    const old_char_id = oldCharRes.rows.length > 0 ? oldCharRes.rows[0].char_id : null;
+
+    // 1. skia_char (캐릭터 마스터) UPDATE
     const queryText = `
       UPDATE skia_char 
       SET char_id = $1, 
@@ -307,23 +306,49 @@ app.patch('/api/char_detail/:master_id', async (req, res) => {
       master_id            
     ];
     
-    const result = await pool.query(queryText, values);
+    const result = await client.query(queryText, values);
     
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
       return res.status(404).send('해당 캐릭터 마스터 정보를 찾을 수 없습니다.');
     }
+
+    // 🌟 2. skia_char_buff (스킬/버프 테이블)의 char_id 일괄 동시 업데이트
+    const updateBuffCharIdQuery = `
+      UPDATE skia_char_buff
+      SET char_id = $1
+      WHERE master_id = $2
+    `;
+    await client.query(updateBuffCharIdQuery, [char_id.trim(), master_id]);
+
+    // 🌟 3. skia_char_effect (추천 버프 테이블)의 char_id도 동시 업데이트
+    if (old_char_id) {
+      const updateEffectCharIdQuery = `
+        UPDATE skia_char_effect
+        SET char_id = $1
+        WHERE char_id = $2
+      `;
+      await client.query(updateEffectCharIdQuery, [char_id.trim(), old_char_id]);
+    }
+
+    await client.query('COMMIT'); // 🚀 트랜잭션 커밋
+    client.release();
+
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
-    console.error('❌ [기본정보 저장 실패] PostgreSQL 에러 원인 상세 분석:', err.message);
+    await client.query('ROLLBACK'); // 에러 시 원복
+    client.release();
+    console.error('❌ [기본정보 및 버프 char_id 저장 실패] PostgreSQL 에러:', err.message);
     res.status(500).send(`DB 필드 오류: ${err.message}`);
   }
 });
 
-// 1. 버프 정보 수정 API (UPDATE)
+// 1. 🌟 [수정 완료] 버프 정보 수정 API (UPDATE) - 파라미터 매핑 번호($1~$22) 정확히 보정
 app.put('/api/char_buff_update', async (req, res) => {
   try {
     const { 
-      buff_seq, skill_range, skill_cool_time, target_code, target_point_code, 
+      buff_seq, char_id, skill_range, skill_cool_time, target_code, target_point_code, 
       buff_name, buff_condition, effect_code, effect_code_name, effect_value, 
       value_unit, effect_duration, range_type, range_detail, remark, is_awk_yn,
       sort_order, hit_count, max_stack, range_x, range_y
@@ -331,51 +356,53 @@ app.put('/api/char_buff_update', async (req, res) => {
 
     const queryText = `
       UPDATE skia_char_buff 
-      SET skill_range = $1, 
-          skill_cool_time = $2, 
-          target_code = $3, 
-          target_point_code = $4, 
-          buff_name = $5, 
-          buff_condition = $6, 
-          effect_code = $7, 
-          effect_code_name = $8, 
-          effect_value = $9, 
-          value_unit = $10, 
-          effect_duration = $11, 
-          range_type = $12, 
-          range_detail = $13, 
-          remark = $14, 
-          is_awk_yn = $15,
-          sort_order = $16,
-          hit_count = $17,
-          max_stack = $18,
-          range_x = $19,
-          range_y = $20
-      WHERE buff_seq = $21
+      SET char_id = COALESCE($1, char_id),
+          skill_range = $2, 
+          skill_cool_time = $3, 
+          target_code = $4, 
+          target_point_code = $5, 
+          buff_name = $6, 
+          buff_condition = $7, 
+          effect_code = $8, 
+          effect_code_name = $9, 
+          effect_value = $10, 
+          value_unit = $11, 
+          effect_duration = $12, 
+          range_type = $13, 
+          range_detail = $14, 
+          remark = $15, 
+          is_awk_yn = $16,
+          sort_order = $17,
+          hit_count = $18,
+          max_stack = $19,
+          range_x = $20,
+          range_y = $21
+      WHERE buff_seq = $22
     `;
 
     const values = [
-      skill_range || null, 
-      skill_cool_time || null, 
-      target_code || null, 
-      target_point_code || null, 
-      buff_name || null, 
-      buff_condition || null, 
-      effect_code || null, 
-      effect_code_name || null, 
-      effect_value || null, 
-      value_unit || null, 
-      effect_duration || null, 
-      range_type || null, 
-      range_detail || null, 
-      remark || null, 
-      is_awk_yn || 'N',
-      sort_order || null,
-      hit_count || null,
-      max_stack || null,
-      range_x || null,
-      range_y || null,
-      buff_seq
+      char_id || null,             // $1
+      skill_range || null,         // $2
+      skill_cool_time || null,     // $3
+      target_code || null,         // $4
+      target_point_code || null,   // $5
+      buff_name || null,           // $6
+      buff_condition || null,      // $7
+      effect_code || null,         // $8
+      effect_code_name || null,    // $9
+      effect_value || null,        // $10
+      value_unit || null,          // $11
+      effect_duration || null,     // $12
+      range_type || null,          // $13
+      range_detail || null,        // $14
+      remark || null,              // $15
+      is_awk_yn || 'N',            // $16
+      sort_order || null,          // $17
+      hit_count || null,           // $18
+      max_stack || null,           // $19
+      range_x || null,             // $20
+      range_y || null,             // $21
+      buff_seq                     // $22 (WHERE 조건 고유키)
     ];
 
     await pool.query(queryText, values);
@@ -447,9 +474,7 @@ app.post('/api/char_buff_insert', async (req, res) => {
 // ❌ 캐릭터 스킬/버프 단일 행 삭제 API
 app.delete('/api/char_buff_delete/:buff_seq', async (req, res) => {
   const { buff_seq } = req.params;
-  //console.log("요청받은 삭제 buff_seq:", buff_seq);
 
-  // 💡 [안전 장치] buff_seq가 올바른 숫자인지 사전 검증
   const parsedBuffSeq = parseInt(buff_seq, 10);
   if (isNaN(parsedBuffSeq)) {
     console.warn(`⚠️ 숫자가 아닌 buff_seq 삭제 요청 차단: "${buff_seq}"`);
@@ -535,14 +560,13 @@ app.get('/api/admin/check-auth', async (req, res) => {
     res.status(500).json({ isAdmin: false });
   }
 });
+
 // ==========================================
-// 📡 [B 구역] 유저 추천 덱 공유 게시판 API (라우팅 최적화 교정본)
+// 📡 [B 구역] 유저 추천 덱 공유 게시판 API
 // ==========================================
 
-// 🎯 1. 결투장 모드별 캐릭터 및 skia_char_buff 전체 컬럼(*) 일괄 조회 API
-// (고정 텍스트 주소이므로 최상단에 둡니다)
 app.get('/api/decks/arena-characters', async (req, res) => {
-  const { category } = req.query; // '일반결투장', '상급결투장', '천상결투장', 깊은밤의악몽
+  const { category } = req.query;
 
   let limitCount = 10;
   if (category === '상급결투장' || category === '천상결투장') {
@@ -830,7 +854,7 @@ app.post('/api/chars/batch', async (req, res) => {
     const finalResult = Array.from(characterMap.values()).map(char => {
       return {
         ...char,
-        buffs: Object.values(char.buffs) // {} 구조를 [] 구조로 전환
+        buffs: Object.values(char.buffs)
       };
     });
 
@@ -905,7 +929,7 @@ app.get('/api/chars/buff-pool', async (req, res) => {
         c.master_id, 
         c.char_id as id, 
         c.nickname as name, 
-        c.is_awk_yn, -- 🌟 콤마(,) 누락되었던 부분 수정
+        c.is_awk_yn,
         COALESCE(b.effect_value::text, '') || COALESCE(b.value_unit, '') AS effect_value
       FROM skia_char_effect e
       INNER JOIN skia_char c ON e.char_id = c.char_id
