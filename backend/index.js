@@ -79,20 +79,29 @@ app.post('/api/login', async (req, res) => {
   try {
     const queryText = 'SELECT * FROM member WHERE user_id = $1';
     const result = await pool.query(queryText, [user_id]);
+    
     if (result.rows.length === 0) {
       return res.status(401).json({ success: false, message: '존재하지 않는 아이디입니다.' });
     }
+    
     const user = result.rows[0];
     if (user.password !== password) {
       return res.status(401).json({ success: false, message: '비밀번호가 일치하지 않습니다.' });
     }
+
+    // 🎯 한국 시간(Asia/Seoul)으로 로그인 타임스탬프 저장
+    await pool.query(
+      "INSERT INTO skia_login_log (user_id, login_at) VALUES ($1, NOW() AT TIME ZONE 'Asia/Seoul')",
+      [user.user_id]
+    );
+
     res.json({
       success: true,
       message: '로그인에 성공했습니다.',
-      user: { user_id: user.user_id, name: user.name, email: user.email,  role: user.role }
+      user: { user_id: user.user_id, name: user.name, email: user.email, role: user.role }
     });
   } catch (err) {
-    console.error('로그인 DB 조회 에러:', err);
+    console.error('로그인 DB 조회 및 이력 저장 에러:', err);
     res.status(500).json({ success: false, message: '서버 내부 오류가 발생했습니다.' });
   }
 });
