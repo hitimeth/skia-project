@@ -1004,7 +1004,7 @@ app.get('/api/decks/category/:categoryName', async (req, res) => {
 
   if (categoryName === 'nightmare') {
     // 🎯 깊은밤의악몽 + 악몽스테이지 두 개를 함께 조회
-    targetCategories = ['깊은밤의악몽', '악몽스테이지','혼돈','신규영웅','스테이지','신기루탑','악몽조각']; 
+    targetCategories = ['깊은밤의악몽', '악몽스테이지','혼돈','신규영웅','스테이지','신기루탑','악몽조각','보스전']; 
   } else if (categoryName === 'descent') {
     targetCategories = ['강림의날']; 
   } else if (categoryName === 'celestial') {
