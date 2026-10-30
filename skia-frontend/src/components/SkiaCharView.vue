@@ -84,6 +84,41 @@
               <label>수정일</label>
               <input type="text" v-model="charForm.upt_date" placeholder="최종 수정 일시">
             </div>
+            <div class="form-group image-upload-group" style="grid-column: span 2;">
+              <label>캐릭터 이미지</label>
+              <div class="image-preview-wrapper" style="display: flex; align-items: center; gap: 12px;">
+                <!-- 미리보기 박스 -->
+                <div class="char-img-box" style="width: 50px; height: 50px; border: 1px solid #ced4da; border-radius: 6px; overflow: hidden; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                  <img 
+                    v-if="previewImageUrl" 
+                    :src="previewImageUrl" 
+                    alt="캐릭터 초상화" 
+                    style="width: 100%; height: 100%; object-fit: cover;"
+                    @error="handleImageError"
+                  />
+                  <span v-else style="font-size: 10px; color: #aaa;">No Image</span>
+                </div>
+
+                <!-- 파일 선택 input 및 삭제 -->
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <input 
+                    type="file" 
+                    ref="charImageInput" 
+                    accept="image/*" 
+                    @change="handleImageChange"
+                    style="font-size: 11px;"
+                  />
+                  <button 
+                    v-if="previewImageUrl" 
+                    type="button" 
+                    @click="removeSelectedImage"
+                    style="padding: 2px 6px; font-size: 10px; color: #dc3545; border: 1px solid #dc3545; background: white; border-radius: 3px; cursor: pointer; width: fit-content;"
+                  >
+                    ❌ 이미지 삭제
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <div class="form-group btn-group">
               <button type="button" class="btn-save" @click="saveBaseInfo">💾 기본 정보 수정 저장</button>
@@ -270,7 +305,12 @@ export default {
       buffs: [],
       commonCodes: [],
       codePopUpWindow: null,
-      charDetailPopUpWindow: null
+      charDetailPopUpWindow: null,
+      selectedFile: null,
+      previewImageUrl: '',
+      // 💡 [추가] 이미지 로드 실패 시 순차적으로 시도할 파일명 패턴 저장
+      imageFallbackCandidates: [],
+      fallbackIndex: 0
     }
   },
   computed: {
@@ -299,6 +339,133 @@ export default {
     window.removeEventListener('message', this.handlePopUpMessage);
   },
   methods: {
+    // 🌟 캐릭터 상세 조회 및 이미지 경로 설정
+    async fetchCharDetail() {
+      if (!this.selectedMasterId) return;
+
+      try {
+        const res = await fetch(`${this.BASE_URL}/api/char_detail/${this.selectedMasterId}`);
+        const data = await res.json();
+        
+        if (data && data.base) {
+          // DB에서 가져온 base 정보 덮어쓰기
+          this.charForm = { 
+            ...data.base, 
+            master_id: this.selectedMasterId 
+          };
+        }
+
+        // char_id 추출 (char_id, CHAR_ID, charId 등 모든 키 대응)
+        const rawId = (this.charForm.char_id || this.charForm.CHAR_ID || this.charForm.charId || '').trim();
+        
+        if (this.charForm.char_image_url) {
+          // DB에 별도 경로가 지정되어 있는 경우
+          this.previewImageUrl = this.BASE_URL + this.charForm.char_image_url;
+          this.imageFallbackCandidates = [];
+        } else if (rawId) {
+          // JN -> JN.jpg, jn.jpg 등 시도 경로 리스트 생성
+          const upper = rawId.toUpperCase();
+          const lower = rawId.toLowerCase();
+          
+          const candidates = [...new Set([
+            `${this.BASE_URL}/uploads/chars/${rawId}.jpg`,
+            `${this.BASE_URL}/uploads/chars/${upper}.jpg`,
+            `${this.BASE_URL}/uploads/chars/${lower}.jpg`,
+            `${this.BASE_URL}/uploads/chars/${rawId}.png`,
+            `${this.BASE_URL}/uploads/chars/${upper}.png`
+          ])];
+
+          this.imageFallbackCandidates = candidates;
+          this.fallbackIndex = 0;
+          this.previewImageUrl = candidates[0]; // JN.jpg부터 로드
+        } else {
+          this.previewImageUrl = '';
+          this.imageFallbackCandidates = [];
+        }
+        
+        this.buffs = (data && data.buffs) ? data.buffs : [];
+        this.selectedFile = null;
+        if (this.$refs.charImageInput) this.$refs.charImageInput.value = '';
+      } catch (error) {
+        console.error("캐릭터 상세 로드 실패:", error);
+      }
+    },
+
+    // 🌟 이미지 로드 에러 시 다른 케이스(소문자/PNG 등)로 자동 교체
+    handleImageError() {
+      if (this.selectedFile) return;
+
+      this.fallbackIndex++;
+      if (this.imageFallbackCandidates && this.fallbackIndex < this.imageFallbackCandidates.length) {
+        this.previewImageUrl = this.imageFallbackCandidates[this.fallbackIndex];
+      } else {
+        // 최종적으로 서버에 파일이 없는 경우에만 No Image 표시
+        this.previewImageUrl = '';
+      }
+    },
+    // 이미지 파일 선택 핸들러
+    handleImageChange(e) {
+      const file = e.target.files[0];
+      if (file) {
+        this.selectedFile = file;
+        this.previewImageUrl = URL.createObjectURL(file);
+      }
+    },
+
+    // 이미지 선택 해제
+    removeSelectedImage() {
+      this.selectedFile = null;
+      this.previewImageUrl = '';
+      this.charForm.char_image_url = '';
+      if (this.$refs.charImageInput) this.$refs.charImageInput.value = '';
+    },
+
+    // 🌟 기본 정보 저장시 FormData로 백엔드 전송
+    async saveBaseInfo() {
+      const masterId = this.selectedMasterId || this.charForm.master_id;
+
+      if (!masterId) {
+        alert("선택된 캐릭터(master_id)가 없습니다.");
+        return;
+      }
+      
+      if (!this.charForm.char_id) {
+        alert("char_id 데이터가 없습니다. 캐릭터를 다시 선택해주세요.");
+        return;
+      }
+
+      const formData = new FormData();
+      Object.keys(this.charForm).forEach(key => {
+        if (this.charForm[key] !== null && this.charForm[key] !== undefined) {
+          formData.append(key, this.charForm[key]);
+        }
+      });
+
+      formData.append('existing_image_url', this.charForm.char_image_url || '');
+
+      // 선택된 이미지 파일이 있으면 폼에 추가
+      if (this.selectedFile) {
+        formData.append('char_image', this.selectedFile);
+      }
+
+      try {
+        const res = await fetch(`${this.BASE_URL}/api/char_detail/${masterId}`, {
+          method: 'PATCH',
+          body: formData
+        });
+
+        if (res.ok) {
+          alert("기본 정보 및 이미지 수정 완료!");
+          this.fetchCharacters();
+          this.fetchCharDetail();
+        } else {
+          const errText = await res.text();
+          alert(`저장 실패: ${errText}`);
+        }
+      } catch (err) {
+        console.error("저장 중 통신 에러:", err);
+      }
+    },
     searchAndSelectById() {
       const inputId = this.charForm.char_id ? this.charForm.char_id.trim() : '';
       
@@ -334,12 +501,12 @@ export default {
       this.charSearchKeyword = `${char.nickname || ''} [${char.char_name || ''}] (${char.char_id || ''})`;
       this.isDropdownOpen = false;
       
-      // charForm에 선택된 캐릭터 기본 정보 동기화
+      // charForm에 선택된 캐릭터 정보 먼저 복사 (char_id 확실히 확보)
       this.charForm = { ...char };
       
-      // 캐릭터 상세 정보 및 버프 목록 호출
+      // 캐릭터 상세 및 이미지 경로 로드
       this.fetchCharDetail();
-    },   
+    }, 
     handlePopUpMessage(event) {
       if (event.data === 'REFRESH_COMMON_CODES') {
         this.fetchCommonCodes();

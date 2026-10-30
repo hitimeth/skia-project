@@ -260,32 +260,48 @@ app.get('/api/char_detail/:master_id', async (req, res) => {
   }
 });
 
-// 🌟 캐릭터 기본정보 수정 시 skia_char_buff 및 skia_char_effect의 char_id도 함께 업데이트 (트랜잭션 적용)
-app.patch('/api/char_detail/:master_id', async (req, res) => {
-  const { master_id } = req.params;
-  
-  // 🌟 프론트엔드가 char_id, charId 중 어떤 키로 보내더라도 안전하게 수신
-  const char_id = req.body.char_id || req.body.charId || req.body.CHAR_ID;
-  const { char_name, grade_name, char_group_name, battle_type, attack_style_code, is_awk_yn, char_detail, reg_date, upt_date } = req.body;
+// 캐릭터 이미지 전용 Multer 디스크 스토리지 (uploads/chars 경로 지정)
+const charStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // 기존에 존재하던 uploads/chars 폴더로 저장
+    cb(null, path.join(__dirname, 'uploads/chars/'));
+  },
+  filename: (req, file, cb) => {
+    // 입력받은 char_id를 대문자로 변환하여 원래 파일 확장자(.jpg 등)로 저장
+    const charId = req.body.char_id || req.body.charId;
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    if (charId) {
+      cb(null, `${charId.trim().toUpperCase()}${ext}`);
+    } else {
+      cb(null, `char-${Date.now()}${ext}`);
+    }
+  }
+});
 
-  // 🌟 char_id 검증 추가 (null이 전달되어 Postgres DB 에러가 나는 것을 사전에 방지)
+const uploadCharImg = multer({ storage: charStorage });
+
+app.patch('/api/char_detail/:master_id', uploadCharImg.single('char_image'), async (req, res) => {
+  const { master_id } = req.params;
+  const char_id = req.body.char_id || req.body.charId;
+  const { char_name, grade_name, char_group_name, battle_type, attack_style_code, is_awk_yn, char_detail, reg_date, upt_date, nickname, existing_image_url } = req.body;
+
   if (!char_id || !String(char_id).trim()) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'char_id(캐릭터 ID)가 누락되었습니다. 데이터를 확인해주세요.' 
-    });
+    return res.status(400).json({ success: false, message: 'char_id(캐릭터 ID)가 누락되었습니다.' });
   }
 
-  const client = await pool.connect(); // 트랜잭션용 커넥션 생성
+  // 파일이 새로 업로드되었으면 새로 저장된 파일 경로 지정, 없으면 기존 경로 유지
+  let char_image_url = existing_image_url || null;
+  if (req.file) {
+    char_image_url = `/uploads/chars/${req.file.filename}`;
+  }
 
+  const client = await pool.connect();
   try {
-    await client.query('BEGIN'); // 🚀 트랜잭션 시작
+    await client.query('BEGIN');
 
-    // 0. 기존 skia_char에서 old char_id 가져오기 (skia_char_effect 동기화용)
     const oldCharRes = await client.query('SELECT char_id FROM skia_char WHERE master_id = $1', [master_id]);
     const old_char_id = oldCharRes.rows.length > 0 ? oldCharRes.rows[0].char_id : null;
 
-    // 1. skia_char (캐릭터 마스터) UPDATE
     const queryText = `
       UPDATE skia_char 
       SET char_id = $1, 
@@ -297,59 +313,51 @@ app.patch('/api/char_detail/:master_id', async (req, res) => {
           is_awk_yn = $7,
           char_detail = $8,
           reg_date = $9,
-          upt_date = $10
-      WHERE master_id = $11 RETURNING *
+          upt_date = $10,
+          nickname = $11,
+          char_image_url = $12
+      WHERE master_id = $13 RETURNING *
     `;
-    
+
     const values = [
-      char_id.trim(), 
-      char_name || null, 
-      grade_name || null, 
-      char_group_name || null, 
-      battle_type || '근거리형', 
-      attack_style_code || null, 
-      is_awk_yn || 'N', 
-      char_detail || null, 
-      reg_date || null,    
-      upt_date || null,    
-      master_id            
+      char_id.trim(),
+      char_name || null,
+      grade_name || null,
+      char_group_name || null,
+      battle_type || '근거리형',
+      attack_style_code || null,
+      is_awk_yn || 'N',
+      char_detail || null,
+      reg_date || null,
+      upt_date || null,
+      nickname || null,
+      char_image_url,
+      master_id
     ];
-    
+
     const result = await client.query(queryText, values);
-    
+
     if (result.rows.length === 0) {
       await client.query('ROLLBACK');
       client.release();
       return res.status(404).send('해당 캐릭터 마스터 정보를 찾을 수 없습니다.');
     }
 
-    // 🌟 2. skia_char_buff (스킬/버프 테이블)의 char_id 일괄 동시 업데이트
-    const updateBuffCharIdQuery = `
-      UPDATE skia_char_buff
-      SET char_id = $1
-      WHERE master_id = $2
-    `;
-    await client.query(updateBuffCharIdQuery, [char_id.trim(), master_id]);
-
-    // 🌟 3. skia_char_effect (추천 버프 테이블)의 char_id도 동시 업데이트
+    // skia_char_buff 및 skia_char_effect 테이블의 char_id도 동기화
+    await client.query('UPDATE skia_char_buff SET char_id = $1 WHERE master_id = $2', [char_id.trim(), master_id]);
     if (old_char_id) {
-      const updateEffectCharIdQuery = `
-        UPDATE skia_char_effect
-        SET char_id = $1
-        WHERE char_id = $2
-      `;
-      await client.query(updateEffectCharIdQuery, [char_id.trim(), old_char_id]);
+      await client.query('UPDATE skia_char_effect SET char_id = $1 WHERE char_id = $2', [char_id.trim(), old_char_id]);
     }
 
-    await client.query('COMMIT'); // 🚀 트랜잭션 커밋
+    await client.query('COMMIT');
     client.release();
 
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK'); // 에러 시 원복
+    await client.query('ROLLBACK');
     client.release();
-    console.error('❌ [기본정보 및 버프 char_id 저장 실패] PostgreSQL 에러:', err.message);
-    res.status(500).send(`DB 필드 오류: ${err.message}`);
+    console.error('❌ [캐릭터 수정 실패]:', err.message);
+    res.status(500).send(`DB 오류: ${err.message}`);
   }
 });
 

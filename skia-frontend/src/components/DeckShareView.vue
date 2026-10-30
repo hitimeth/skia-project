@@ -247,7 +247,22 @@ export default {
     scrollToCategory(category) {
       const targetArray = this.$refs['cat-' + category];
       if (targetArray && targetArray.length > 0) {
-        targetArray[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const element = targetArray[0];
+        
+        // 1. 고정되어 있는 상단 배너 요소 가져오기
+        const header = document.querySelector('.main-banner-container');
+        // 배너 높이에 상단 공통 헤더 높이(예: 60px)를 고려한 전체 오프셋 계산
+        const headerOffset = header ? header.offsetHeight + 60 : 200; 
+
+        // 2. 이동할 요소의 절대 Y 위치 계산
+        const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+        const offsetPosition = elementPosition - headerOffset;
+
+        // 3. 보정된 위치로 부드럽게 스크롤 이동
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
       }
     },
     
@@ -456,6 +471,17 @@ export default {
   width: 100%;
   min-height: calc(100vh - 150px); /* 영역 최소 높이 확보 */
   overflow: hidden; /* 중요: 오른쪽 밖(-450px)에 숨은 서랍 때문에 브라우저 가로 스크롤바가 생기는 걸 방지 */
+}
+
+.main-banner-container {
+  position: sticky;
+  /* 1. 최상단 공통 헤더 높이만큼 띄워줍니다 (헤더 높이에 맞춰 50px~60px 사이로 조절) */
+  top: 70px; 
+  
+  /* 2. 공통 헤더보다는 아래, 일반 콘텐츠보다는 위에 오도록 z-index 조절 */
+  z-index: 90; 
+  
+  background-color: #1a1a1a;
 }
 /* 왼쪽 리스트 구역 */
 .grid-section {
