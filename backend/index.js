@@ -10,9 +10,9 @@ const app = express();
 const port = 3000;
 
 const allowedOrigins = [
-  'http://localhost:5173',                      // 내 컴퓨터에서 테스트할 때 (로컬)
-  'http://127.0.0.1:5173',
-  'http://3.38.80.197:5173'                     // 🚨 탄력적IP:포트번호
+  'http://localhost:5173',
+  'http://3.39.52.13',       // 👈 새 탄력적 IP 적용
+  'http://3.39.52.13:3000'
 ];
 
 app.use(cors({
@@ -28,8 +28,9 @@ app.use(cors({
 
 const pool = new Pool({
   user: 'postgres',
+  password: 'skiadbhwn!!',
   host: 'localhost',                        
-  database: 'skia',
+  database: 'skia_db',
   port: 5432                                 
 });
 
