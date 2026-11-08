@@ -1,7 +1,8 @@
 <template>
   <div class="menu-style-container">
-    <header class="main-banner-container">
-      <div class="banner-inner">
+    <header class="main-banner-container">   
+      <!-- 1. 카테고리 메뉴 영역 (v-show 연결) -->
+      <div class="banner-inner" v-show="isHeaderNavOpen">
         <div class="header-category-nav">
           <div class="nav-grid">
             <button v-for="cat in fixedCategories" :key="cat" @click="scrollToCategory(cat)" class="nav-link">
@@ -11,6 +12,14 @@
           </div>
         </div>
       </div>
+
+      <!-- 2. 메뉴 하단 토글 바 (위치 이동) -->
+      <div class="banner-toggle-bar">
+        <button type="button" class="btn-toggle-nav" @click="isHeaderNavOpen = !isHeaderNavOpen">
+          {{ isHeaderNavOpen ? '▲ 닫기' : '▼ 열기' }}
+        </button>
+      </div>         
+      
       <div class="banner-bottom-accent"></div>
     </header>
 
@@ -159,6 +168,7 @@ export default {
       decks: [],
       isEditMode: false,
       showScrollTopBtn: false,
+      isHeaderNavOpen: true, // 🎯 [추가] 상단 검은색 메뉴 열림/닫힘 상태 (기본값: true)
       isFormVisible: false, // 🎯 [추가] 기본적으로 열려있게 시작 (원하시면 false로 변경 가능)      
       deckForm: { board_id: '', category: '깊은밤의악몽', log_date: '', title: '', char_buff_summary: '', content: '', existing_image_url: '', deck_content1: '', deck_content2: '', deck_content3: '' },
       fixedCategories: [
@@ -609,7 +619,32 @@ export default {
 .deck-list-wrapper { display: flex; flex-direction: column; gap: 25px; }
 .category-block { background: white; border-radius: 12px; padding: 20px; border: 1px solid #eaeae8; }
 .category-title-box { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 2px solid #1a1a1a; padding-bottom: 8px; }
+/* 🎯 [추가] 상단 배너 토글 버튼 스타일 */
+.banner-toggle-bar {
+  display: flex;
+  justify-content: right; /* 하단 오른쪽 정렬 */
+  padding: 6px 10px;
+  background-color: #111111;
+  border-top: 1px solid #2a2a2a; /* 상단 구분선 */
+}
 
+.btn-toggle-nav {
+  background: transparent;
+  border: 1px solid #444;
+  color: #ccc;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 3px 12px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-nav:hover {
+  color: #ffffff;
+  background: #e67e22;
+  border-color: #e67e22;
+}
 /* 🎯 [요청사항 반영] LIST 배지를 높이가 반인 [추가] 클릭 버튼으로 변경 */
 .btn-add-category {
   background: #1a1a1a; 
