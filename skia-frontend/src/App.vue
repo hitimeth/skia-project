@@ -14,8 +14,8 @@
 
         <nav v-if="isLoggedIn" class="main-navigation">
           <button class="nav-item" :class="{ active: currentTab === 'home' }" @click="currentTab = 'home'">홈</button>          
-          <button class="nav-item" :class="{ active: currentTab === 'info' }" @click="currentTab = 'info'">링크</button>
-          <!-- <button class="nav-item" :class="{ active: currentTab === 'buff' }" @click="currentTab = 'buff'"></button> -->
+          <!--button class="nav-item" :class="{ active: currentTab === 'info' }" @click="currentTab = 'info'">링크</button-->
+          <button class="nav-item" :class="{ active: currentTab === 'char-info' }" @click="currentTab = 'char-info'">캐릭터INFO</button>
           <button class="nav-item" :class="{ active: currentTab === 'deck-share' }" @click="currentTab = 'deck-share'">덱공유</button>
           <button class="nav-item" :class="{ active: currentTab === 'deck-build' }" @click="currentTab = 'deck-build'">깊악</button>
           <button class="nav-item" :class="{ active: currentTab === 'deck-build_descent' }" @click="currentTab = 'deck-build_descent'">강림</button>
@@ -47,6 +47,7 @@
           <HomeView v-if="currentTab === 'home'" />
           <InfoListView v-else-if="currentTab === 'info'" />
           <HomeBuffListView v-else-if="currentTab === 'buff'" />
+          <SkiaCharInfoView v-else-if="currentTab === 'char-info'" />
           <DeckShareView v-else-if="currentTab === 'deck-share'" />
           <DeckBuildView v-else-if="currentTab === 'deck-build'" :boardCategory="'nightmare'" />
           <DeckBuildView v-else-if="currentTab === 'deck-build_descent'" :boardCategory="'descent'" />
@@ -83,6 +84,7 @@ import HomeBuffListView from './components/HomeBuffListView.vue';
 import DeckShareView from './components/DeckShareView.vue';
 import DeckBuildView from './components/DeckBuildView.vue';
 import SkiaCharView from './components/SkiaCharView.vue';
+import SkiaCharInfoView from './components/SkiaCharInfoView.vue';
 import BoardView from './components/BoardView.vue';
 import MyPageView from './components/MyPageView.vue';
 import LoginEntrance from './components/LoginEntrance.vue';
@@ -97,6 +99,7 @@ export default {
     DeckShareView, 
     DeckBuildView,
     SkiaCharView, 
+    SkiaCharInfoView,
     BoardView, 
     MyPageView,
     LoginEntrance,
