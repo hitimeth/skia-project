@@ -1255,6 +1255,29 @@ app.delete('/api/char-effects/:effect_seq', async (req, res) => {
   }
 });
 
+
+app.get('/api/chars/recent', async (req, res) => {
+  try {
+    const query = `
+      SELECT char_id, MAX(reg_date) AS latest_reg_date
+      FROM public.skia_char
+      WHERE reg_date IS NOT NULL
+        AND TRIM(reg_date) <> ''
+        AND char_id not like '%_B%'
+      GROUP BY char_id
+      ORDER BY latest_reg_date DESC, char_id DESC
+      LIMIT 5
+    `;
+    const result = await pool.query(query);
+    const recentCodes = result.rows.map(row => row.char_id);
+    res.json(recentCodes);
+  } catch (err) {
+    console.error('최신 캐릭터 5종 조회 에러:', err);
+    res.status(500).json({ message: '최신 캐릭터 목록 조회 중 서버 에러가 발생했습니다.' });
+  }
+});
+
+
 // [백엔드] Express 라우트
 app.get('/api/chars/detail/:char_id', async (req, res) => {
   const { char_id } = req.params;

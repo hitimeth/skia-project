@@ -15,12 +15,12 @@
         <nav v-if="isLoggedIn" class="main-navigation">
           <button class="nav-item" :class="{ active: currentTab === 'home' }" @click="currentTab = 'home'">홈</button>          
           <!--button class="nav-item" :class="{ active: currentTab === 'info' }" @click="currentTab = 'info'">링크</button-->
-          <button class="nav-item" :class="{ active: currentTab === 'char-info' }" @click="currentTab = 'char-info'">캐릭터INFO</button>
+          <button class="nav-item" :class="{ active: currentTab === 'char-info' }" @click="currentTab = 'char-info'">캐릭터</button>
           <button class="nav-item" :class="{ active: currentTab === 'deck-share' }" @click="currentTab = 'deck-share'">덱공유</button>
           <button class="nav-item" :class="{ active: currentTab === 'deck-build' }" @click="currentTab = 'deck-build'">깊악</button>
           <button class="nav-item" :class="{ active: currentTab === 'deck-build_descent' }" @click="currentTab = 'deck-build_descent'">강림</button>
           <button class="nav-item" :class="{ active: currentTab === 'deck-build_celestial' }" @click="currentTab = 'deck-build_celestial'">천결</button>
-          <button class="nav-item" :class="{ active: currentTab === 'char' }" @click="currentTab = 'char'">캐릭터</button>
+          <button class="nav-item" :class="{ active: currentTab === 'char' }" @click="currentTab = 'char'">입력</button>
           <button class="nav-item" :class="{ active: currentTab === 'board' }" @click="currentTab = 'board'">게시판</button>
           <button class="nav-item" :class="{ active: currentTab === 'mypage' }" @click="currentTab = 'mypage'">마이페이지</button>
         </nav>
