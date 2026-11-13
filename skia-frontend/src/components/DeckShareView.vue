@@ -1,24 +1,22 @@
 <template>
   <div class="menu-style-container">
     <header class="main-banner-container">   
-      <!-- 1. 카테고리 메뉴 영역 (v-show 연결) -->
-      <div class="banner-inner" v-show="isHeaderNavOpen">
+      <div class="banner-inner">
         <div class="header-category-nav">
-          <div class="nav-grid">
+          <!-- 1. 카테고리 메뉴 영역 (닫으면 이 그리드만 숨겨짐) -->
+          <div class="nav-grid" v-show="isHeaderNavOpen">
             <button v-for="cat in fixedCategories" :key="cat" @click="scrollToCategory(cat)" class="nav-link">
               {{ cat }}
               <span v-if="hasNewPost(cat)" class="new-badge">N</span>
             </button>
           </div>
+
+          <!-- 2. 메뉴 우측 옆으로 이동한 토글 버튼 -->
+          <button type="button" class="btn-toggle-nav" @click="isHeaderNavOpen = !isHeaderNavOpen">
+            {{ isHeaderNavOpen ? '▲ 닫기' : '▼ 열기' }}
+          </button>
         </div>
       </div>
-
-      <!-- 2. 메뉴 하단 토글 바 (위치 이동) -->
-      <div class="banner-toggle-bar">
-        <button type="button" class="btn-toggle-nav" @click="isHeaderNavOpen = !isHeaderNavOpen">
-          {{ isHeaderNavOpen ? '▲ 닫기' : '▼ 열기' }}
-        </button>
-      </div>         
       
       <div class="banner-bottom-accent"></div>
     </header>
@@ -40,43 +38,53 @@
               <h4 class="category-heading">{{ category }}</h4>
             </div>
 
-            <div class="table-responsive grid-scroll-container" v-if="getSortedDecksByCategory(category).length > 0">
-              <table class="deck-grid-table">
-                <tbody>
-                  <tr v-for="deck in getSortedDecksByCategory(category)" :key="deck.board_id">
-                    <td class="td-center font-bold">{{ deck.log_date || 'N/A' }}</td>
-                    <td style="text-align: left; padding: 6px 8px; white-space: normal !important;">
-                      <div class="deck-header-inline" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2px;">
-                      <!-- white-space: pre-line 추가로 엔터 줄바꿈 그대로 렌더링 -->
-                      <span style="font-weight: 800; color: #1a1a1a; font-size: 11px; white-space: pre-line;">{{ deck.title }}</span>
-                      
-                      <div class="deck-action-inline" style="display: flex; gap: 4px; align-items: center;">
-                        <button class="btn-grid-mini" @click="setEditDeck(deck)">수정</button>
-                        <button class="btn-grid-mini btn-delete-mini" @click="deleteDeckPost(deck.board_id)">✕</button>
-                      </div>
+            <div class="card-scroll-container" v-if="getSortedDecksByCategory(category).length > 0">
+              <div class="deck-card-list">
+                <div 
+                    v-for="(deck, index) in getSortedDecksByCategory(category)" 
+                    :key="deck.board_id" 
+                    class="deck-card-item"
+                  >
+                  
+                  <!-- 1. 카드 상단: 좌측(연번 배지 + 제목) / 우측(날짜 + 수정 + 삭제) -->
+                  <div class="deck-card-header">
+                    <div class="deck-card-title-group">
+                      <span class="deck-num-badge">No. {{ getSortedDecksByCategory(category).length - index }}</span>
+                      <div class="deck-card-title">{{ deck.title }}</div>
                     </div>
 
-                      <div v-if="deck.image_url" class="deck-image-preview-box" style="margin: 6px 0;">
-                        <img 
-                          :src="BASE_URL + deck.image_url" 
-                          alt="등록된 덱 배치 이미지" 
-                          class="deck-list-img"
-                          @click="openImage(deck.image_url)"
-                          style="max-width: 180px; max-height: 120px; border-radius: 4px; border: 1px solid #e2e8f0; cursor: pointer; display: block;"
-                        />
+                    <div class="deck-action-inline">
+                      <span class="deck-date-tag">{{ deck.log_date || 'N/A' }}</span>
+                      <button class="btn-card-edit" @click="setEditDeck(deck)">수정</button>
+                      <button class="btn-card-delete" @click="deleteDeckPost(deck.board_id)">✕</button>
+                    </div>
+                  </div>
+
+                  <!-- 2. 이미지 미리보기 -->
+                  <div v-if="deck.image_url" class="deck-image-preview-box">
+                    <img 
+                      :src="BASE_URL + deck.image_url" 
+                      alt="등록된 덱 배치 이미지" 
+                      class="deck-list-img"
+                      @click="openImage(deck.image_url)"
+                    />
+                  </div>
+
+                  <!-- 3. 덱 코드 리스트 (라벤더-블루 톤 박스 + 복사 버튼) -->
+                  <div class="deck-code-group">
+                    <template v-for="idx in [1, 2, 3]" :key="idx">
+                      <div v-if="deck['deck_content' + idx]" class="deck-code-row">
+                        <span class="deck-idx-label">[덱{{ idx }}]</span>
+                        <button @click="copyToClipboard(deck['deck_content' + idx])" class="btn-card-copy" title="코드 복사">
+                          📋 복사
+                        </button>
+                        <span class="deck-code-text">{{ deck['deck_content' + idx] }}</span>
                       </div>
-                      
-                      <template v-for="idx in [1, 2, 3]" :key="idx">
-                        <div v-if="deck['deck_content' + idx]" class="deck-row-inline" style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-                          <span style="font-size: 11px; color: #777; font-weight: bold; white-space: nowrap;">[덱{{ idx }}]</span>
-                          <button @click="copyToClipboard(deck['deck_content' + idx])" class="btn-grid-copyinline">복사</button>
-                          <span style="font-size: 11px; color: #333; word-break: break-all;">{{ deck['deck_content' + idx] }}</span>
-                        </div>
-                      </template>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </template>
+                  </div>
+
+                </div>
+              </div>
             </div>
             <div v-else class="empty-sub-msg">현재 등록된 추천 공략 조합이 없습니다.</div>
           </div>
@@ -629,14 +637,16 @@ export default {
 }
 
 .btn-toggle-nav {
-  background: transparent;
+  flex-shrink: 0;            /* 버튼 크기가 찌그러지지 않도록 고정 */
+  background: #222222;
   border: 1px solid #444;
   color: #ccc;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  padding: 3px 12px;
-  border-radius: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  white-space: nowrap;       /* 글자 줄바꿈 방지 */
   transition: all 0.2s ease;
 }
 
@@ -770,8 +780,20 @@ export default {
 .btn-gray-trans { width: 100%; padding: 10px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
 .btn-cancel-floating { width: 100%; padding: 10px; background-color: #ffffff; color: #dc2626; border: 1px solid #fca5a5; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
 
-.header-category-nav { flex: 1; }
-.nav-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+/* 배너 내부 레이아웃 */
+.header-category-nav {
+  display: flex;
+  align-items: flex-start;   /* 👈 center 에서 flex-start 로 변경 (위쪽 기준 정렬) */
+  justify-content: flex-end; 
+  gap: 10px;                 
+  width: 100%;
+}
+.nav-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
 .nav-link { background: #2a2a2a; border: none; color: #fff; font-size: 11px; padding: 6px 4px; border-radius: 4px; text-align: center; cursor: pointer; }
 .nav-link:hover { background: #e67e22; }
 
@@ -826,6 +848,288 @@ export default {
   animation: pulse-glow 2s infinite; /* 시각적으로 부드럽게 깜빡이는 효과 */
 }
 
+/* 카드 리스트 스크롤 컨테이너 */
+.card-scroll-container {
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 2px 4px 4px 2px;
+}
+
+.deck-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ④ 라벤더 & 인디고 카드 스타일 */
+.deck-card-item {
+  background-color: #f8f7ff; /* 은은한 라벤더 배경 */
+  border: 1px solid #d4d2f2; /* 부드러운 퍼플 테두리 */
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 6px rgba(67, 56, 202, 0.05);
+  transition: all 0.15s ease;
+}
+
+.deck-card-item:hover {
+  background-color: #f3f1ff;
+  border-color: #a5a1e6;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.1);
+}
+
+/* 카드 헤더 */
+.deck-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.deck-card-title-group {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start !important; /* 왼쪽부터 나란히 배치 */
+  gap: 12px;
+  flex: 1;
+  text-align: left !important;
+}
+
+.deck-card-title {
+  font-weight: 800;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+  text-align: left !important; /* 여러 줄일 때도 왼쪽 정렬 강제 */
+  word-break: break-word;
+  flex: 1;                     /* 남은 가로 폭을 끝까지 차지하도록 설정 */
+}
+/* 진한 인디고 날짜 알약 배지 */
+.deck-date-pill {
+  background-color: #3730a3; /* 인디고 포인트 컬러 */
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.deck-card-title {
+  font-weight: 800;
+  color: #1e1b4b; /* 딥 인디고 텍스트 */
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-line;
+}
+
+/* 우측 상단 수정 / 삭제 버튼 */
+.deck-action-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-card-edit {
+  background: transparent;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-card-edit:hover {
+  background: #e0e7ff;
+}
+
+.btn-card-delete {
+  background: transparent;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-card-delete:hover {
+  background: #fee2e2;
+}
+
+/* 이미지 미리보기 */
+.deck-image-preview-box {
+  margin: 8px 0;
+}
+.deck-list-img {
+  max-width: 180px;
+  max-height: 120px;
+  border-radius: 6px;
+  border: 1px solid #d4d2f2;
+  cursor: pointer;
+  display: block;
+}
+
+/* 덱 코드 영역 */
+.deck-code-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-left: 4px;
+}
+
+.deck-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background-color: #ffffff;
+  border: 1px solid #e0e7ff;
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+
+.deck-idx-label {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4f46e5;
+  white-space: nowrap;
+}
+
+.deck-code-text {
+  flex: 1;
+  text-align: left;
+  font-size: 11px;
+  color: #1e293b;
+  font-family: 'Consolas', 'Monaco', monospace;
+  word-break: break-all;
+}
+
+/* 복사 버튼 */
+.btn-card-copy {
+  background-color: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #3730a3;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn-card-copy:hover {
+  background-color: #3730a3;
+  border-color: #3730a3;
+  color: #ffffff;
+}
+/* 카드 헤더: 좌우 양끝 정렬 */
+.deck-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* 좌측: 연번 배지 + 제목 */
+.deck-card-title-group {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start !important;
+  gap: 8px;
+  flex: 1;
+  text-align: left !important;
+}
+
+/* 좌측 연번 배지 (딥 인디고 포인트) */
+.deck-num-badge {
+  background-color: #312e81;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.deck-card-title {
+  font-weight: 800;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+  text-align: left !important;
+  word-break: break-word;
+  flex: 1;
+}
+
+/* 우측: 날짜 + 수정 + 삭제 버튼 그룹 */
+.deck-action-inline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+/* [수정] 버튼과 높이·스타일을 통일한 날짜 태그 */
+.deck-date-tag {
+  display: inline-flex;
+  align-items: center;
+  background-color: #eef2ff; /* Soft Lavender & Blue 배경 */
+  border: 1px solid #c7d2fe; /* 수정 버튼과 유사한 연보라 테두리 */
+  color: #3730a3;            /* 진한 인디고 텍스트 */
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 5px;        /* 수정/삭제 버튼과 동일한 곡률 */
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* 수정 버튼 (날짜 태그와 높이·곡률 통일) */
+.btn-card-edit {
+  background: #ffffff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-card-edit:hover {
+  background: #e0e7ff;
+  border-color: #818cf8;
+}
+
+/* 삭제 버튼 (높이·곡률 통일) */
+.btn-card-delete {
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 5px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-card-delete:hover {
+  background: #fee2e2;
+}
 /* 🎯 배지가 밋밋하지 않게 펄스 효과 추가 */
 @keyframes pulse-glow {
   0% { transform: scale(1); opacity: 1; }
