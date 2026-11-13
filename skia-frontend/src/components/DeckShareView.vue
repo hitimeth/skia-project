@@ -443,36 +443,41 @@ export default {
       window.open(this.BASE_URL + url, '_blank'); 
     },
   // 🎯 [추가] 특정 카테고리에 10일 이내에 작성된 글이 있는지 검사하는 메서드
+    // 🎯 [수정] YYYY/MM/DD 및 MM/DD 형식 모두 7일 이내 작성 글인지 검사
     hasNewPost(category) {
-      // 1. 해당 카테고리의 글만 필터링
       const categoryDecks = this.decks.filter(deck => deck.category === category);
       if (categoryDecks.length === 0) return false;
 
       const now = new Date();
-      const currentYear = now.getFullYear();
+      // 오늘 날짜의 자정(00:00:00) 기준으로 비교하여 시간 차이로 인한 누락 방지
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0);
 
-      // 2. 10일 전 타임스탬프 계산
-      const tenDaysAgo = new Date();
-      tenDaysAgo.setDate(now.getDate() - 7);
-
-      // 3. 글 중에서 하나라도 10일 이내에 해당하는 항목이 있는지 검사
       return categoryDecks.some(deck => {
         if (!deck.log_date) return false;
 
-        // '07/11' 문자열에서 월과 일 분리
-        const [month, day] = deck.log_date.split('/').map(num => parseInt(num, 10));
-        if (!month || !day) return false;
+        // '/' 또는 '-' 구분자 모두 대응
+        const parts = deck.log_date.split(/[-/]/).map(num => parseInt(num, 10));
+        let postDate;
 
-        // Date 객체로 변환 (연도는 현재 연도로 보정)
-        const postDate = new Date(currentYear, month - 1, day);
-
-        // 미래의 날짜로 찍혀 유저 컴퓨터 시간과 꼬이는 버그 방지 (예: 내년 날짜 방지)
-        if (postDate > now) {
-          postDate.setFullYear(currentYear - 1);
+        if (parts.length === 3) {
+          // YYYY/MM/DD 형식 (예: 2026/11/13)
+          const [year, month, day] = parts;
+          if (!year || !month || !day) return false;
+          postDate = new Date(year, month - 1, day);
+        } else if (parts.length === 2) {
+          // 기존 MM/DD 형식 호환 (예: 11/13)
+          const [month, day] = parts;
+          if (!month || !day) return false;
+          postDate = new Date(now.getFullYear(), month - 1, day);
+          if (postDate > todayEnd) {
+            postDate.setFullYear(now.getFullYear() - 1);
+          }
+        } else {
+          return false;
         }
 
-        // 10일 전보다 이후(최근)이고, 현재 시간보다 이전인 데이터 판별
-        return postDate >= tenDaysAgo && postDate <= now;
+        return postDate >= sevenDaysAgo && postDate <= todayEnd;
       });
     }
   }
