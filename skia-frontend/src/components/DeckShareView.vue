@@ -46,17 +46,19 @@
                     class="deck-card-item"
                   >
                   
-                  <!-- 1. 카드 상단: 좌측(연번 배지 + 제목) / 우측(날짜 + 수정 + 삭제) -->
+                  <!-- 1. 카드 상단: 좌측(연번 배지 + 제목) / 우측(1줄: 날짜, 2줄: 수정·삭제) -->
                   <div class="deck-card-header">
                     <div class="deck-card-title-group">
                       <span class="deck-num-badge">No. {{ getSortedDecksByCategory(category).length - index }}</span>
                       <div class="deck-card-title">{{ deck.title }}</div>
                     </div>
 
-                    <div class="deck-action-inline">
+                    <div class="deck-action-stack">
                       <span class="deck-date-tag">{{ deck.log_date || 'N/A' }}</span>
-                      <button class="btn-card-edit" @click="setEditDeck(deck)">수정</button>
-                      <button class="btn-card-delete" @click="deleteDeckPost(deck.board_id)">✕</button>
+                      <div class="deck-btn-row">
+                        <button class="btn-card-edit" @click="setEditDeck(deck)">수정</button>
+                        <button class="btn-card-delete" @click="deleteDeckPost(deck.board_id)">✕</button>
+                      </div>
                     </div>
                   </div>
 
@@ -1090,8 +1092,6 @@ export default {
 .deck-date-tag {
   display: inline-flex;
   align-items: center;
-  background-color: #eef2ff; /* Soft Lavender & Blue 배경 */
-  border: 1px solid #c7d2fe; /* 수정 버튼과 유사한 연보라 테두리 */
   color: #3730a3;            /* 진한 인디고 텍스트 */
   font-size: 11px;
   font-weight: 700;
