@@ -986,11 +986,11 @@
   display: flex;
   align-items: inherit;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 5px 7px;
   background-color: #1e2330; /* 예시 배경색 */
-  border-radius: 8px;
-  margin-bottom: 8px;
-  gap: 12px; /* 좌우 영역 간격 확보 */
+  border-radius: 4px;
+  margin-bottom: 4px;
+  gap: 4px; /* 좌우 영역 간격 확보 */
 }
 .buff-item-card:hover { border-color: #475569; }
 

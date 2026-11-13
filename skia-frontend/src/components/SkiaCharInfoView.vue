@@ -1130,18 +1130,18 @@ onMounted(async () => {
 }
 
 .fit-card {
-  padding: 6px 8px !important;
-  display: flex;
+  padding: 2px 2px !important;
+  display: contents;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .fit-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  gap: 6px;
+  width: 94%;
+  gap: 2px;
 }
 
 .fit-left {
@@ -1249,5 +1249,67 @@ onMounted(async () => {
   color: #64748b;
   font-size: 0.82rem;
   line-height: 1.4;
+}
+
+/* 기존 PC 기본 스타일 유지 */
+.horizontal-scroll-board {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: 100%;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+}
+
+.hero-card-column {
+  flex: 0 0 calc((100% - 16px) / 3);
+  min-width: 310px; /* PC에서도 최소 폭 310px 확보 */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ✅ [추가] 모바일 화면(768px 이하) 최적화: 카드 1장씩 꽉 차게 + 스냅 스크롤 */
+@media (max-width: 768px) {
+  .horizontal-scroll-board {
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+  }
+
+  .hero-card-column {
+    flex: 0 0 100%;       /* 한 화면에 카드 1개 100% 꽉 차게 표시 */
+    min-width: 100%;
+    scroll-snap-align: start;
+  }
+
+  /* 모바일에서 수치/MAX/지속시간이 겹치거나 잘리지 않도록 미세 조정 */
+  .main-tab-btn {
+    font-size: 0.8rem;
+    padding: 8px 6px;
+  }
+
+  .slim-label-box {
+    width: 38px;
+    font-size: 0.68rem;
+  }
+
+  .buff-name {
+    font-size: 0.78rem;
+  }
+
+  .buff-val {
+    font-size: 0.8rem;
+  }
+
+  .buff-max-badge-sm {
+    font-size: 0.6rem;
+    padding: 1px 3px;
+  }
+
+  .sub-info-sm {
+    font-size: 0.64rem;
+  }
 }
 </style>
