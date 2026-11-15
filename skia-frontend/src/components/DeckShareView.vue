@@ -341,24 +341,58 @@ export default {
 
     formatLogDate() {
       if (!this.deckForm.log_date) return;
-      
-      // 숫자와 슬래시(/)만 남기기
-      let val = this.deckForm.log_date.replace(/[^\d/]/g, '').trim();
-      
+
+      // 1. 문자열 변환 후 숫자와 슬래시(/)만 남기기
+      let val = String(this.deckForm.log_date).replace(/[^\d/]/g, '').trim();
+      let year = '';
+      let month = '';
+      let day = '';
+
       if (val.includes('/')) {
         const parts = val.split('/');
-        if (parts.length >= 2) {
-          // 월, 일을 각각 2자리 숫자(01~12 / 01~31) 패딩 처리
-          const month = parts[0].padStart(2, '0');
-          const day = parts[1].padStart(2, '0');
-          this.deckForm.log_date = `${month}/${day}`;
+        // 연, 월, 일이 모두 입력된 경우만 처리 (예: 2026/7/5 또는 26/07/05)
+        if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+          year = parts[0].length === 2 ? `20${parts[0]}` : parts[0].slice(0, 4);
+          month = parts[1].slice(0, 2).padStart(2, '0');
+          day = parts[2].slice(0, 2).padStart(2, '0');
+        } else {
+          return; // 미완성 입력('2026/10/' 등)은 변환 보류
         }
-      } else if (val.length === 4) {
-        // 만약 '0701' 처럼 슬래시 없이 4자리 숫자로 입력한 경우 자동 보정
-        const month = val.substring(0, 2);
-        const day = val.substring(2, 4);
-        this.deckForm.log_date = `${month}/${day}`;
+      } else {
+        // 슬래시 없이 숫자만 입력한 경우
+        if (val.length === 8) {
+          // '20261025' -> 2026/10/25
+          year = val.substring(0, 4);
+          month = val.substring(4, 6);
+          day = val.substring(6, 8);
+        } else if (val.length === 6) {
+          // '261025' -> 2026/10/25 (2자리 연도 편의성 지원)
+          year = `20${val.substring(0, 2)}`;
+          month = val.substring(2, 4);
+          day = val.substring(4, 6);
+        } else {
+          return;
+        }
       }
+
+      // 2. 연/월/일 유효성 및 실제 달력 날짜 검증 (윤년 포함)
+      const y = parseInt(year, 10);
+      const m = parseInt(month, 10);
+      const d = parseInt(day, 10);
+
+      if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) {
+        this.deckForm.log_date = '';
+        return;
+      }
+
+      // 입력된 연도(y) 기준으로 해당 월의 마지막 날짜 계산 (예: 2026년 2월은 28일까지)
+      const maxDaysInMonth = new Date(y, m, 0).getDate();
+      if (d > maxDaysInMonth) {
+        this.deckForm.log_date = '';
+        return;
+      }
+
+      this.deckForm.log_date = `${year}/${month}/${day}`;
     },
 
     async saveDeckPost() {
