@@ -366,26 +366,46 @@
           <!-- 해시태그 모드 (#치확&저항 ~ #유틸) -->
           <div v-else class="right-tag-grouped-container">
             <div v-for="group in groupedTagHeroes" :key="group.effectCode || group.effectName" class="buff-group-box">
+              <!-- 왼쪽 효과명 라벨 -->
               <div class="buff-group-box-title" :class="group.tagKey === 'DEBUFF' ? 'text-debuff' : 'text-buff'">
                 {{ group.effectNameShort }}
               </div>
-              <div 
-                v-for="hero in group.heroes" 
-                :key="hero.id" 
-                class="pool-hero-item has-val" 
-                :class="{ 'in-team-disabled': isHeroPlaced(hero.id) }"
-                :draggable="!isHeroPlaced(hero.id)" 
-                @dragstart="onDragStartFromPool($event, hero)" 
-                :style="{ borderColor: isHeroPlaced(hero.id) ? '#475569' : (hero.color || '#475569') }"
-              >
-                <div class="hero-avatar-wrapper">
-                  <img :src="getHeroImage(hero.id)" @error="handleImageError" :alt="hero.name" class="char-avatar" />
-                  <span v-if="getAssignedTeam(hero.id)" class="in-team-badge">
-                    T{{ getAssignedTeam(hero.id) }}
-                  </span>
+
+              <!-- 오른쪽: 영웅 카드 1줄 + 하단 ㅡ ㅡ ㅡ 미니 네비게이터 -->
+              <div class="buff-group-content-col">
+                <div class="right-group-hero-grid">
+                  <div 
+                    v-for="hero in getPaginatedGroupHeroes(group)" 
+                    :key="hero.id" 
+                    class="pool-hero-item has-val" 
+                    :class="{ 'in-team-disabled': isHeroPlaced(hero.id) }"
+                    :draggable="!isHeroPlaced(hero.id)" 
+                    @dragstart="onDragStartFromPool($event, hero)" 
+                    :style="{ borderColor: isHeroPlaced(hero.id) ? '#475569' : (hero.color || '#475569') }"
+                  >
+                    <div class="hero-avatar-wrapper">
+                      <img :src="getHeroImage(hero.id)" @error="handleImageError" :alt="hero.name" class="char-avatar" />
+                      <span v-if="getAssignedTeam(hero.id)" class="in-team-badge">
+                        T{{ getAssignedTeam(hero.id) }}
+                      </span>
+                    </div>
+                    <span class="hero-mini-name">{{ hero.name }}</span>
+                    <span v-if="hero.effectValue" class="hero-mini-val">{{ hero.effectValue }}</span>
+                  </div>
                 </div>
-                <span class="hero-mini-name">{{ hero.name }}</span>
-                <span v-if="hero.effectValue" class="hero-mini-val">{{ hero.effectValue }}</span>
+
+                <!-- 영웅이 1페이지를 초과할 때만 표시되는 ㅡ ㅡ ㅡ 미니 인디케이터 -->
+                <div v-if="getEffectGroupTotalPages(group) > 1" class="group-dash-nav">
+                  <button
+                    v-for="pageIdx in getEffectGroupTotalPages(group)"
+                    :key="pageIdx"
+                    type="button"
+                    class="dash-nav-item"
+                    :class="{ active: getEffectGroupPage(group.effectCode || group.effectName) === (pageIdx - 1) }"
+                    @click="setEffectGroupPage(group.effectCode || group.effectName, pageIdx - 1)"
+                    :title="`${pageIdx} / ${getEffectGroupTotalPages(group)} 페이지`"
+                  ></button>
+                </div>
               </div>
             </div>
             <div v-if="groupedTagHeroes.length === 0" class="no-data-msg">{{ texts.heroPool.noBuffHero }}</div>
@@ -628,6 +648,10 @@ const {
   isAdmin,
   isSyncingEffects,
   syncCharEffects,
+  getEffectGroupPage,
+  setEffectGroupPage,
+  getPaginatedGroupHeroes,
+  getEffectGroupTotalPages,
   selectedBoardDeck,
   boardDecks,
   selectedSkillClass,

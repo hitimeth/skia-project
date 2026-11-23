@@ -249,6 +249,84 @@
 /* ===================================================
    4. 오른쪽 영웅 보관함 (Right Pool Column)
    =================================================== */
+   /* 박스 밖으로 영웅 카드가 삐져나가지 않도록 고정 */
+.buff-group-box {
+  background-color: #161922;
+  border: 1px solid #2d3342;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* 오른쪽 영웅 카드 영역 + 하단 ㅡ ㅡ ㅡ 바를 세로로 묶는 래퍼 */
+.buff-group-content-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 한 줄 고정 (박스 폭 안에서 깔끔하게 정렬) */
+.right-group-hero-grid {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ㅡ ㅡ ㅡ 미니 네비게이터 컨테이너 */
+.group-dash-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding-top: 2px;
+  height: 10px;
+}
+
+/* 개별 ㅡ 막대 버튼 (클릭 영역은 넉넉하게, 모양은 얇은 ㅡ 선으로) */
+.dash-nav-item {
+  width: 16px;
+  height: 3px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background-color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+/* 마우스 클릭하기 쉽도록 위아래 투명 터치 영역 확보 */
+.dash-nav-item::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: -2px;
+  right: -2px;
+}
+
+.dash-nav-item:hover {
+  background-color: #64748b;
+}
+
+.dash-nav-item.active {
+  width: 22px;
+  background-color: #38bdf8;
+}
+
 .right-pool-column {
   flex: 34;
   background-color: #161820;

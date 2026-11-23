@@ -1107,6 +1107,40 @@ export function useDeckBuild({
     }
   };
 
+  // 해시태그별 효과 그룹 내부 미니 페이지네이션 상태 (effectCode -> pageIndex)
+  const effectGroupPages = ref({});
+  const HEROES_PER_PAGE = 7; // 한 페이지에 표시할 영웅 카드 수 (박스 너비에 맞춰 6~8 조절 가능)
+
+  const getEffectGroupPage = (effectKey) => {
+    return effectGroupPages.value[effectKey] || 0;
+  };
+
+  const setEffectGroupPage = (effectKey, pageIdx) => {
+    effectGroupPages.value = {
+      ...effectGroupPages.value,
+      [effectKey]: pageIdx
+    };
+  };
+
+  const getPaginatedGroupHeroes = (group) => {
+    const key = group.effectCode || group.effectName;
+    const list = group.heroes || [];
+    const totalPages = Math.max(1, Math.ceil(list.length / HEROES_PER_PAGE));
+    const currentPage = Math.min(getEffectGroupPage(key), totalPages - 1);
+    const start = currentPage * HEROES_PER_PAGE;
+    return list.slice(start, start + HEROES_PER_PAGE);
+  };
+
+  const getEffectGroupTotalPages = (group) => {
+    const list = group.heroes || [];
+    return Math.ceil(list.length / HEROES_PER_PAGE);
+  };
+
+  // 해시태그 탭 변경 또는 검색어 입력 시 페이지 번호 0으로 초기화
+  watch([heroPoolFilter, heroSearchKeyword], () => {
+    effectGroupPages.value = {};
+  });
+
   // 캐릭터 상세 정보
   const selectedHeroDetailRaw = ref(null);
   const isLoadingHeroDetail = ref(false);
@@ -1293,6 +1327,10 @@ export function useDeckBuild({
     selectedHeroDetail,
     isLoadingHeroDetail,
     handleHeroSelect,
-    getBuffsByCategory
+    getBuffsByCategory,
+    getEffectGroupPage,
+    setEffectGroupPage,
+    getPaginatedGroupHeroes,
+    getEffectGroupTotalPages
   };
 }
