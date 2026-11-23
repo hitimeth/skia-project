@@ -19,7 +19,7 @@
 .top-dashboard-zone,
 .main-workspace-zone {
   width: 100%;
-  min-width: 1200px;
+  min-width: 1024px;
   box-sizing: border-box;
 }
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2b2f3a; padding-bottom: 8px; margin-bottom: 10px; gap: 12px; }
@@ -576,7 +576,7 @@
    =================================================== */
 .bottom-status-zone {
   width: 100%;
-  min-width: 1200px;
+  min-width: 1024px;
   box-sizing: border-box;
 }
 
