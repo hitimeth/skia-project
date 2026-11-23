@@ -142,11 +142,12 @@ export function useDeckBuild({
     const query = heroSearchKeyword.value.trim().toLowerCase();
     if (!buffHeroPool.value || buffHeroPool.value.length === 0) return [];
 
-    const formatEffectVal = (rawVal) => {
+    const formatEffectVal = (rawVal, rawUnit) => {
       if (rawVal === null || rawVal === undefined || rawVal === '') return '';
       const num = Number(rawVal);
       if (isNaN(num) || num <= 0) return '';
-      return `${num}%`;
+      const unit = rawUnit && String(rawUnit).trim() !== '' ? String(rawUnit).trim() : '%';
+      return `${num}${unit}`;
     };
 
     let pool = buffHeroPool.value;
@@ -169,7 +170,7 @@ export function useDeckBuild({
             id: String(heroId),
             name: heroName,
             color: row.color || undefined,
-            effectValue: formatEffectVal(row.effect_value ?? row.effectValue)
+            effectValue: formatEffectVal(row.effect_value ?? row.effectValue, row.value_unit ?? row.valueUnit)
           });
         }
       });
@@ -178,7 +179,6 @@ export function useDeckBuild({
 
     return pool
       .map(group => {
-        // 백엔드가 내려줄 수 있는 모든 코드/이름 키 대응
         const code = String(
           group.effectCode || group.effect_code || group.code_id || group.code || group.id || ''
         ).trim().toUpperCase();
@@ -193,7 +193,7 @@ export function useDeckBuild({
           ...h,
           id: String(h.id || h.char_id || h.charId),
           name: h.name || h.char_name || h.charName || '',
-          effectValue: h.effectValue || formatEffectVal(h.effect_value ?? h.effectValue)
+          effectValue: h.effectValue || formatEffectVal(h.effect_value ?? h.effectValue, h.value_unit ?? h.valueUnit)
         }));
 
         const isEffectMatched = effectName.toLowerCase().includes(query) || effectNameShort.toLowerCase().includes(query);

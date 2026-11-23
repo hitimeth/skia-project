@@ -625,6 +625,9 @@ const configMap = {
 const cfg = configMap[props.boardCategory] || configMap.nightmare;
 
 const {
+  isAdmin,
+  isSyncingEffects,
+  syncCharEffects,
   selectedBoardDeck,
   boardDecks,
   selectedSkillClass,

@@ -950,6 +950,7 @@ app.get('/api/chars/buff-pool', async (req, res) => {
         c.char_color AS color,
         ce.rank_score,
         ce.effect_value,
+        ce.value_unit,
         ce.skill_code
       FROM public.skia_char_effect ce
       INNER JOIN public.skia_char c
@@ -958,6 +959,7 @@ app.get('/api/chars/buff-pool', async (req, res) => {
         ON UPPER(TRIM(ce.effect_code)) = UPPER(TRIM(cd.code_id))
       LEFT JOIN public.skia_group_code gc
         ON cd.code_group = gc.code_group
+      WHERE ce.char_id not like '%_B'
       ORDER BY cd.sort_order ASC NULLS LAST, ce.effect_code ASC, ce.rank_score ASC
     `;
     const result = await pool.query(query);
@@ -995,7 +997,8 @@ app.get('/api/chars/buff-pool', async (req, res) => {
           name: row.name || '무명',
           is_awk_yn: row.is_awk_yn,
           color: row.color || getRandomColorById(rawId.toUpperCase()),
-          effect_value: row.effect_value ?? ''
+          effect_value: row.effect_value ?? '',
+          value_unit: row.value_unit || '%'
         });
       }
     });
@@ -1286,13 +1289,13 @@ app.post('/api/admin/sync-char-effects', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1. 자동 동기화 대상(sync_yn = 'Y') 데이터만 초기화 (수동 고정 'N' 데이터 보존)
+    // 1. 자동 동기화 대상(sync_yn = 'Y') 데이터만 초기화
     await client.query(`
       DELETE FROM public.skia_char_effect
       WHERE sync_yn = 'Y'
     `);
 
-    // 2. (effect_code, char_id) 당 최고 수치 대표 스킬 1건 추출 후 rank_score 자동 산정
+    // 2. (effect_code, char_id) 당 최고 수치 대표 스킬 1건 추출 (value_unit 포함)
     const syncQuery = `
       WITH best_char_effects AS (
         SELECT DISTINCT ON (UPPER(TRIM(b.effect_code)), b.char_id)
@@ -1300,7 +1303,8 @@ app.post('/api/admin/sync-char-effects', async (req, res) => {
           b.char_id,
           b.target_code,
           b.skill_code,
-          COALESCE(NULLIF(b.max_value, 0), b.effect_value, 0) AS best_value
+          COALESCE(NULLIF(b.max_value, 0), b.effect_value, 0) AS best_value,
+          COALESCE(NULLIF(TRIM(b.value_unit), ''), '%') AS value_unit
         FROM public.skia_char_buff b
         INNER JOIN public.skia_char c
           ON b.char_id = c.char_id
@@ -1333,6 +1337,7 @@ app.post('/api/admin/sync-char-effects', async (req, res) => {
           target_code,
           skill_code,
           best_value,
+          value_unit,
           ROW_NUMBER() OVER (
             PARTITION BY effect_code
             ORDER BY best_value DESC, char_id ASC
@@ -1346,6 +1351,7 @@ app.post('/api/admin/sync-char-effects', async (req, res) => {
         target_code,
         skill_code,
         effect_value,
+        value_unit,
         sync_yn
       )
       SELECT
@@ -1355,6 +1361,7 @@ app.post('/api/admin/sync-char-effects', async (req, res) => {
         target_code,
         skill_code,
         best_value,
+        value_unit,
         'Y'
       FROM ranked_effects
       ON CONFLICT (effect_code, char_id) DO NOTHING
