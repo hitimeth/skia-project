@@ -17,14 +17,14 @@ export function useDeckBuild({
   const isPoolCollapsed = ref(false);
   const selectedBoardDeck = ref(null);
   const boardDecks = ref([]);
-    // 🎯 깊악(deep_nightmare 등) 및 천결(celestial) 카테고리인 경우 '액티브공격'으로 강제 초기화
-  const isDeepOrCelestial = 
-    boardCategory === 'celestial' || 
-    boardCategory === 'deep_nightmare' || 
-    boardCategory === 'nightmare'; // 사용 중인 깊악/천결 카테고리명 추가
+
+  const isDeepOrCelestial =
+    boardCategory === 'celestial' ||
+    boardCategory === 'deep_nightmare' ||
+    boardCategory === 'nightmare';
 
   const defaultSkillClass = isDeepOrCelestial ? '액티브공격' : (initialSkillClass || '액티브공격');
-  
+
   const selectedSkillClass = ref(defaultSkillClass);
   const arenaRefs = ref({});
   const setArenaRef = (el, teamNo) => { if (el) arenaRefs.value[teamNo] = el; };
@@ -32,43 +32,47 @@ export function useDeckBuild({
   const draggingFromTeam = ref(null);
   const rawHeroList = ref([]);
   const buffHeroPool = ref([]);
-  const heroGradeFilter = ref('BUFF_LIST');
+
+  // 오른쪽 영웅 보관함 필터 상태: 'ALL', 'HIGH_LOAD', 'LEGEND+', 'LEGEND' 또는 해시태그 키('CRIT_RES' 등)
+  const heroPoolFilter = ref('LEGEND+');
   const heroSearchKeyword = ref('');
   const teams = ref({ 1: [], 2: [], 3: [], '1_reverse': [] });
   const commonCodes = ref([]);
   const selectedHeroName = ref(null);
 
-  const showBuffModal = ref(false);
-  const isEditing = ref(false);
-  const skiaCharEffects = ref([]);
-  const buffForm = ref({ effect_seq: null, effect_code: '', char_id: '', rank_score: 1 });
-  const effectSearchText = ref('');
-  const heroSearchText = ref('');
   const isMounted = ref(false);
-
-
-
-  
-  // 🎯 [요청 1 추가] 효과코드 및 그룹코드 필터링 상태
-  const effectCodeSearchText = ref(''); // 효과코드 입력 검색어
-  const selectedGroupCode = ref('ALL');   // 그룹코드 선택 (ALL, CCC, DOT, STB 등)
-
-  // 그룹코드 셀렉트 옵션
-  const groupCodeOptions = [
-    { label: '전체 그룹', value: 'ALL' },
-    { label: 'CCC (제어)', value: 'CCC' },
-    { label: 'DOT (지속피해)', value: 'DOT' },
-    { label: 'SYG (시너지)', value: 'SYG' },
-    { label: 'UTC (유틸)', value: 'UTC' },
-    { label: 'STB (버프)', value: 'STB' },
-    { label: 'DGB (상태)', value: 'DGB' },
-    { label: 'SDB (디버프)', value: 'SDB' }
-  ];
-
-  // 1. 카메라 드래그 중인 팀 번호 저장 상태
   const draggingCameraTeam = ref(null);
 
-// 1. 함수 정의
+  // =========================================================================
+  // 🏷️ 코드 접두사 + 약어 기반 해시태그(7종) 분류 헬퍼
+  // =========================================================================
+  const classifyEffectTag = (effectCode, shortName = '', fullName = '') => {
+    const code = String(effectCode || '').trim().toUpperCase();
+    const text = `${shortName} ${fullName}`.trim();
+
+    if (code.startsWith('DGB')) return 'DMG_DEALT'; // #피해량
+    if (code.startsWith('CCC') || code.startsWith('SYG')) return 'CC_SYNERGY'; // #CC&시너지
+    if (code.startsWith('DOT')) return 'DAMAGE'; // #피해
+    if (code.startsWith('SDB')) return 'DEBUFF'; // #디버프
+    if (code.startsWith('UTC')) return 'UTIL'; // #유틸
+
+    // STB (아군 스탯 버프): 치확&저항 / 피해 / 이외
+    if (code.startsWith('STB')) {
+      if (text.includes('확') || text.includes('저')) return 'CRIT_RES'; // #치확&저항
+      if (text.includes('피')) return 'DAMAGE'; // #피해
+      return 'ETC'; // #이외
+    }
+
+    // 코드가 비어있거나 예외 코드인 경우 텍스트 기반 폴백
+    if (text.includes('확') || text.includes('저')) return 'CRIT_RES';
+    if (text.includes('피')) return 'DAMAGE';
+    return 'ETC';
+  };
+
+  const isEffectTagMode = computed(() => {
+    return ['CRIT_RES', 'DAMAGE', 'ETC', 'DMG_DEALT', 'CC_SYNERGY', 'DEBUFF', 'UTIL'].includes(heroPoolFilter.value);
+  });
+
   const onCameraDragStart = (event, teamNo) => {
     draggingCameraTeam.value = teamNo;
     event.dataTransfer.effectAllowed = 'move';
@@ -107,25 +111,11 @@ export function useDeckBuild({
     const teamKeys = [1, 2, 3];
     for (const teamNo of teamKeys) {
       const team = teams.value[teamNo];
-      if (team && team.some(member => String(member.id || member.char_id) === String(heroId))) {
+      if (team && team.some(member => String(member.id || member.char_id).toUpperCase() === String(heroId).toUpperCase())) {
         return teamNo;
       }
     }
     return null;
-  };
-
-  const addHeroToTeam = (hero, targetTeam = teams.value) => {
-    if (!teams.value[targetTeam]) {
-      teams.value[targetTeam] = [];
-    }
-    
-    if (teams.value[targetTeam].length >= 5) {
-      alert('팀당 최대 5명까지 배치 가능합니다.');
-      return;
-    }
-    
-    teams.value[targetTeam].push(hero);
-    calculateAllRanges();
   };
 
   const isHeroPlaced = (heroId) => {
@@ -133,42 +123,54 @@ export function useDeckBuild({
     return placedHeroIds.value.has(String(heroId).toUpperCase());
   };
 
+  // 등급별 필터링된 영웅 보관함
   const filteredHeroPool = computed(() => {
     let list = rawHeroList.value;
-    if (heroGradeFilter.value !== 'ALL' && heroGradeFilter.value !== 'BUFF_LIST') {
-      list = list.filter(h => h.grade === heroGradeFilter.value);
+    if (!isEffectTagMode.value && heroPoolFilter.value !== 'ALL') {
+      list = list.filter(h => h.grade === heroPoolFilter.value);
     }
     const q = heroSearchKeyword.value.trim().toLowerCase();
     if (q) {
-      list = list.filter(h => h.name.toLowerCase().includes(q));
+      list = list.filter(h => (h.name || '').toLowerCase().includes(q));
     }
     return list;
   });
 
-  const buffSubFilter = ref('ALL');
-  const groupedBuffHeroes = computed(() => {
+  // 해시태그별 그룹화된 영웅 보관함 (오른쪽 패널용 - 수치 포함)
+  const groupedTagHeroes = computed(() => {
+    if (!isEffectTagMode.value) return [];
     const query = heroSearchKeyword.value.trim().toLowerCase();
     if (!buffHeroPool.value || buffHeroPool.value.length === 0) return [];
 
-    // Normalize API shape: buffHeroPool may already be grouped (group.heroes array)
-    // or may be a flat list of rows per hero. Detect and convert flat rows into grouped entries.
+    const formatEffectVal = (rawVal) => {
+      if (rawVal === null || rawVal === undefined || rawVal === '') return '';
+      const num = Number(rawVal);
+      if (isNaN(num) || num <= 0) return '';
+      return `${num}%`;
+    };
+
     let pool = buffHeroPool.value;
     if (pool.length > 0 && !Array.isArray(pool[0].heroes)) {
       const map = new Map();
       pool.forEach(row => {
-        const code = (row.effect_code || row.effectCode || row.effectCodeId || row.code_id || row.code || '').toString();
-        const name = row.effect_name || row.effectName || row.name || '';
+        const code = String(row.effect_code || row.effectCode || row.code_id || row.code || '').trim();
+        const name = row.effect_name || row.effectName || row.code_name || row.name || '';
+        const shortName = row.effect_name_short || row.effectNameShort || row.code_name_short || name;
         const type = row.effect_type || row.type || '';
 
         if (!map.has(code)) {
-          map.set(code, { effectCode: code, effectName: name, effect_type: type, effectType: type, heroes: [] });
+          map.set(code, { effectCode: code, effectName: name, effectNameShort: shortName, effectType: type, heroes: [] });
         }
-
         const g = map.get(code);
-        const heroId = row.char_id || row.charId || row.id || row.hero_id || row.heroId;
-        const heroName = row.char_name || row.charName || row.hero_name || row.heroName || row.name || '';
+        const heroId = row.char_id || row.charId || row.id;
+        const heroName = row.char_name || row.charName || row.name || '';
         if (heroId) {
-          g.heroes.push({ id: String(heroId), name: heroName, color: row.color || undefined });
+          g.heroes.push({
+            id: String(heroId),
+            name: heroName,
+            color: row.color || undefined,
+            effectValue: formatEffectVal(row.effect_value ?? row.effectValue)
+          });
         }
       });
       pool = Array.from(map.values());
@@ -176,63 +178,42 @@ export function useDeckBuild({
 
     return pool
       .map(group => {
-        // 1. 속성명 안심 접근 (effectName 또는 effect_name 또는 name 등)
-        const groupEffectName = group.effectName || group.effect_name || group.name || '';
-        const isEffectMatched = groupEffectName.toLowerCase().includes(query);
-        
-        const matchedHeroes = (group.heroes || []).filter(h => 
-          (h.name || h.char_name || '').toLowerCase().includes(query)
+        // 백엔드가 내려줄 수 있는 모든 코드/이름 키 대응
+        const code = String(
+          group.effectCode || group.effect_code || group.code_id || group.code || group.id || ''
+        ).trim().toUpperCase();
+
+        const effectName = group.effectName || group.effect_name || group.code_name || group.name || getCodeName(code) || '';
+        const effectNameShort = group.effectNameShort || group.effect_name_short || group.code_name_short || getCodeName(code) || effectName;
+        const tagKey = classifyEffectTag(code, effectNameShort, effectName);
+
+        if (tagKey !== heroPoolFilter.value) return null;
+
+        const normalizedHeroes = (group.heroes || []).map(h => ({
+          ...h,
+          id: String(h.id || h.char_id || h.charId),
+          name: h.name || h.char_name || h.charName || '',
+          effectValue: h.effectValue || formatEffectVal(h.effect_value ?? h.effectValue)
+        }));
+
+        const isEffectMatched = effectName.toLowerCase().includes(query) || effectNameShort.toLowerCase().includes(query);
+        const matchedHeroes = normalizedHeroes.filter(h =>
+          h.name.toLowerCase().includes(query)
         );
 
-        // 검색어가 있는데 효과명에도, 영웅 목록에도 없으면 제외
         if (query && !isEffectMatched && matchedHeroes.length === 0) return null;
-        
-        const heroesToDisplay = (query && !isEffectMatched) ? matchedHeroes : (group.heroes || []);
-        
-        // 2. effectType 판단 로직 타입 완화 (Boolean/String/1/0 대응 + 코드 기반 탐지)
-        const rawType = (group.effectType || group.effect_type || '').toString();
-        const rawCode = (group.effectCode || group.effect_code || group.groupCode || group.group_code || '').toString();
-        let calculatedType = '버프';
+        const heroesToDisplay = (query && !isEffectMatched) ? matchedHeroes : normalizedHeroes;
 
-        const isDebuff = group.isDebuff === true || group.isDebuff === 'true' || group.isDebuff === 1;
-        const isCccFlag = group.isCcc === true || group.isCcc === 'true' || group.isCcc === 1;
-        const isUtcFlag = group.isUtc === true || group.isUtc === 'true' || group.isUtc === 1;
-
-        // 코드나 텍스트에 CCC/CC/CCCxx/CCxx, UTC/UT/UTCxx/UTxx 또는 한글 표기가 포함되어 있으면 해당 타입으로 간주
-        // 예: CCC01, CCC10, CC01, UTC02, UT03 등 다양한 표기 허용 (언더스코어/하이픈 포함)
-        const codeLooksLikeCcc = /(?:ccc[_-]?\d*|cc[_-]?\d*)/i.test(rawCode) || /군중|제어|control/i.test((rawType + ' ' + rawCode));
-        const codeLooksLikeUtc = /(?:utc[_-]?\d*|ut[_-]?\d*)/i.test(rawCode) || /유틸|utility/i.test((rawType + ' ' + rawCode));
-
-        // 우선 코드 기반(CCC/UTC 등) 판별을 먼저 수행하여 CCC로 시작하는 effectCode는 군중제어로 분류
-        if (rawType === '군중제어' || rawType.toUpperCase() === 'CCC' || isCccFlag || codeLooksLikeCcc) {
-          calculatedType = '군중제어';
-        } else if (rawType === '유틸' || rawType.toUpperCase() === 'UTC' || isUtcFlag || codeLooksLikeUtc) {
-          calculatedType = '유틸';
-        } else if (rawType.toLowerCase() === '디버프' || isDebuff) {
-          calculatedType = '디버프';
-        }
-
-        return { 
-          ...group, 
-          effectType: calculatedType, 
-          heroes: heroesToDisplay 
+        return {
+          ...group,
+          effectCode: code,
+          effectName,
+          effectNameShort,
+          tagKey,
+          heroes: heroesToDisplay
         };
       })
-      .filter(group => group && group.heroes && group.heroes.length > 0)
-      .filter(group => {
-        // 3. 서브 필터링
-        if (buffSubFilter.value === 'BUFF') return group.effectType === '버프';
-        if (buffSubFilter.value === 'DEBUFF') return group.effectType === '디버프';
-        if (buffSubFilter.value === 'CCC') return group.effectType === '군중제어';
-        if (buffSubFilter.value === 'UTC') return group.effectType === '유틸';
-        return true;
-      })
-      .sort((a, b) => {
-        const typeOrder = { '버프': 1, '디버프': 2, '군중제어': 3, '유틸': 4 };
-        const orderA = typeOrder[a.effectType] || 99;
-        const orderB = typeOrder[b.effectType] || 99;
-        return orderA - orderB;
-      });
+      .filter(group => group && group.heroes && group.heroes.length > 0);
   });
 
   const fetchCommonCodes = async () => {
@@ -280,12 +261,28 @@ export function useDeckBuild({
     }
   };
 
-  const fetchSkiaCharEffects = async () => {
+  const isSyncingEffects = ref(false);
+
+  const syncCharEffects = async () => {
+    if (isSyncingEffects.value) return;
+    if (!confirm('skia_char_buff 기준으로 영웅 보관함 효과 데이터를 일괄 동기화하시겠습니까?\n(자동 동기화 항목은 최신 수치로 덮어씌워집니다.)')) {
+      return;
+    }
+
     try {
-      const res = await axios.get(`${BASE_URL}/api/char-effects`);
-      skiaCharEffects.value = res.data || [];
-    } catch (e) {
-      console.error('캐릭터 효과 조회 실패:', e);
+      isSyncingEffects.value = true;
+      const response = await axios.post(`${BASE_URL}/api/admin/sync-char-effects`);
+      if (response.data?.success) {
+        alert(response.data.message || '동기화가 완료되었습니다.');
+        await fetchBuffPool();
+      } else {
+        alert(response.data?.message || '동기화에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('효과 데이터 동기화 오류:', error);
+      alert('서버 통신 중 오류가 발생했습니다.');
+    } finally {
+      isSyncingEffects.value = false;
     }
   };
 
@@ -338,24 +335,20 @@ export function useDeckBuild({
     if (queryIds.size === 0) return [];
 
     try {
-
-      
       const response = await axios.post(`${BASE_URL}/api/chars/batch`, { charIds: Array.from(queryIds) });
       const dbCharsMap = new Map((response.data || []).map(c => [String(c.id || c.char_id).toUpperCase(), c]));
-      
-      const refContainer = arenaRefs.value[teamNo] || arenaRefs.value['1_r'] || arenaRefs.value['1_reverse'];
 
-// 🥊 cellHeight, cellWidth 기본값(36) 안전장치 추가
+      const refContainer = arenaRefs.value[teamNo] || arenaRefs.value['1_r'] || arenaRefs.value['1_reverse'];
       const fallbackWidth = typeof cardWidth === 'number' ? cardWidth : 36;
       const fallbackHeight = typeof cardHeight === 'number' ? cardHeight : 36;
 
       const cellHeight = (refContainer && refContainer.getBoundingClientRect().height > 0)
-        ? refContainer.getBoundingClientRect().height / gridRows 
+        ? refContainer.getBoundingClientRect().height / gridRows
         : fallbackHeight;
       const cellWidth = (refContainer && refContainer.getBoundingClientRect().width > 0)
-        ? refContainer.getBoundingClientRect().width / gridCols 
+        ? refContainer.getBoundingClientRect().width / gridCols
         : fallbackWidth;
-        
+
       const parsedList = [];
       const isReverse = String(teamNo).includes('reverse') || String(teamNo).includes('_r');
 
@@ -363,11 +356,10 @@ export function useDeckBuild({
         const charId = slots[i];
         if (!charId) continue;
         const baseCharData = dbCharsMap.get(charId) || { id: charId, name: '미등록', color: '#94a3b8', skills: {}, buffs: {} };
-        
-        // 🥊 리버스 팀도 동일한 그리드 인덱스 함수를 사용하여 좌표 불일치 방지
+
         const gridPos = getGridFromIndex(i);
-        let row = gridPos.row;
-        let col = isReverse ? (gridCols - 1 - gridPos.col) : gridPos.col; // 리버스 반전 처리
+        const row = gridPos.row;
+        const col = isReverse ? (gridCols - 1 - gridPos.col) : gridPos.col;
 
         parsedList.push({
           ...JSON.parse(JSON.stringify(baseCharData)),
@@ -388,7 +380,6 @@ export function useDeckBuild({
   };
 
   const loadSelectedBoardDeck = async () => {
-    // 💡 덱을 불러올 때 기존 드래그 상태 리셋
     localCameraGridPositions.value = {};
     if (!selectedBoardDeck.value) return;
     selectedHeroName.value = null;
@@ -397,7 +388,6 @@ export function useDeckBuild({
     teams.value[1] = await handleDeckCodeParse(deck_content1, 1);
     teams.value[2] = await handleDeckCodeParse(deck_content2, 2);
     teams.value[3] = await handleDeckCodeParse(deck_content3, 3);
-    
     teams.value['1_reverse'] = await handleDeckCodeParse(deck_content1, '1_reverse');
 
     await nextTick();
@@ -425,8 +415,9 @@ export function useDeckBuild({
 
   const onDragging = () => { calculateAllRanges(); };
 
-// 📷 3. onDrop 내부의 카메라 처리 블록 수정
   const onDrop = async (event, teamNo) => {
+    activeStatusTab.value = teamNo;
+
     const refContainer = arenaRefs.value[teamNo];
     if (!refContainer) return;
 
@@ -440,10 +431,8 @@ export function useDeckBuild({
     const dragType = event.dataTransfer.getData('type');
     const sourceTeamNo = Number(event.dataTransfer.getData('teamNo'));
 
-    // 📷 카메라 드래그앤드롭 처리
     if (dragType === 'camera' || draggingCameraTeam.value) {
       const currentTeam = sourceTeamNo || draggingCameraTeam.value;
-
       if (currentTeam !== teamNo) {
         draggingCameraTeam.value = null;
         return;
@@ -452,11 +441,8 @@ export function useDeckBuild({
       const colFromRight = (gridCols - 1) - col;
       const letterIndex = colFromRight * gridRows + row;
       const cameraChar = `#${String.fromCharCode(65 + letterIndex)}`;
-
-      // A. 로컬 상태에만 드래그 위치 저장 (selectedBoardDeck 원본 객체는 건드리지 않음!)
       localCameraGridPositions.value[teamNo] = cameraChar;
 
-      // B. 화면 픽셀 좌표 재계산
       await nextTick();
       if (typeof updateCameraPixelPosition === 'function') {
         updateCameraPixelPosition();
@@ -470,7 +456,7 @@ export function useDeckBuild({
 
     const isHeroAlreadyInAnyTeam = (charId) => {
       const targetId = String(charId).toUpperCase();
-      return [1, 2, 3, '1_reverse'].some(tNo => 
+      return [1, 2, 3, '1_reverse'].some(tNo =>
         (teams.value[tNo] || []).some(c => String(c.id || c.char_id).toUpperCase() === targetId)
       );
     };
@@ -497,10 +483,7 @@ export function useDeckBuild({
         if (!masterCharData) {
           masterCharData = rawHeroList.value.find(c => String(c.id).toUpperCase() === String(targetCharId).toUpperCase());
         }
-        if (!masterCharData) {
-          console.warn(`[${targetCharId}] 데이터를 찾지 못했습니다.`);
-          return;
-        }
+        if (!masterCharData) return;
 
         const newChar = {
           ...JSON.parse(JSON.stringify(masterCharData)),
@@ -577,14 +560,23 @@ export function useDeckBuild({
     calculateAllRanges();
   };
 
+  // 하단 현황판 포커스 팀 & 해시태그 탭 상태
   const activeStatusTab = ref(1);
-  const activeBoardType = ref('buff');
-  const getStatusTabLabel = computed(() => `T${activeStatusTab.value}`);
+  const activeBoardType = ref('CRIT_RES'); // 'CRIT_RES', 'DAMAGE', 'ETC', 'DMG_DEALT', 'CC_SYNERGY', 'DEBUFF', 'UTIL', 'INFO'
+
+  const selectStatusTeam = (teamNo) => {
+    activeStatusTab.value = teamNo;
+  };
+
+  const getStatusTabLabel = computed(() => {
+    if (activeStatusTab.value === '1_reverse') return '팀 1 (리버스)';
+    return `팀 ${activeStatusTab.value}`;
+  });
 
   const getHeroImage = (id) => id ? `${BASE_URL}/uploads/chars/${String(id).toUpperCase()}.jpg` : 'https://placehold.co/36?text=No+Img';
   const handleImageError = (e) => { e.target.src = 'https://placehold.co/36?text=No+Img'; };
 
-const copyTeamDeckCode = async (teamNo) => {
+  const copyTeamDeckCode = async (teamNo) => {
     const gridCodeArray = Array(gridRows * gridCols).fill('.');
     const targetTeam = teams.value ? (teams.value[teamNo] || []) : [];
 
@@ -597,73 +589,51 @@ const copyTeamDeckCode = async (teamNo) => {
       }
     });
 
-    // 1. 기본 덱 문자열 생성 (48자리)
     let deckCode = gridCodeArray.join('');
-
-    // 2. 📷 카메라 위치 정보 문자열(#W 등) 추출
     let rawPos = '';
     const deckData = selectedBoardDeck.value;
 
     if (deckData) {
-      // DB 객체 내 다양한 카메라 필드 탐색
-      rawPos = deckData[`cameraPosition${teamNo}`] || 
-               deckData[`camera_pos${teamNo}`] || 
-               deckData[`cameraPosition`] || 
+      rawPos = deckData[`cameraPosition${teamNo}`] ||
+               deckData[`camera_pos${teamNo}`] ||
+               deckData[`cameraPosition`] ||
                deckData[`camera_pos`] || '';
 
-      // 원본 덱 콘텐츠 문자열(deck_content1 등) 내에 #W 형식으로 포함되어 있는 경우 파싱
       if (!rawPos) {
         const contentStr = deckData[`deck_content${teamNo}`] || deckData.deck_content1 || '';
         const match = String(contentStr).match(/#([A-Z])/i);
-        if (match && match[1]) {
-          rawPos = match[1];
-        }
+        if (match && match[1]) rawPos = match[1];
       }
     }
 
-    // 3. 카메라 문자가 유효하면 #알파벳 형태로 붙임
     if (rawPos) {
       const cameraLetter = String(rawPos).replace('#', '').trim().toUpperCase();
-      if (cameraLetter) {
-        deckCode += `#${cameraLetter}`;
-      }
+      if (cameraLetter) deckCode += `#${cameraLetter}`;
     }
 
-    // 4. 클립보드 복사 실행
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(deckCode);
         alert(`덱 코드가 복사되었습니다! (${deckCode})`);
       } else {
-        copyToClipboardFallback(deckCode, teamNo);
+        copyToClipboardFallback(deckCode);
       }
     } catch (err) {
-      console.warn('Modern clipboard API 실패, Fallback 시도:', err);
-      copyToClipboardFallback(deckCode, teamNo);
+      copyToClipboardFallback(deckCode);
     }
   };
 
-  const copyToClipboardFallback = (text, teamNo) => {
+  const copyToClipboardFallback = (text) => {
     const textArea = document.createElement('textarea');
     textArea.value = text;
     textArea.style.position = 'fixed';
     textArea.style.top = '-9999px';
     textArea.style.left = '-9999px';
     document.body.appendChild(textArea);
-    
     textArea.focus();
     textArea.select();
-
     try {
-      const successful = document.execCommand('copy');
-      if (successful) {
-        alert(`덱 코드가 복사되었습니다!`);
-      } else {
-        alert('복사 실패: 브라우저 권한을 확인해주세요.');
-      }
-    } catch (err) {
-      console.error('Fallback 복사 실패:', err);
-      alert('클립보드 복사를 지원하지 않는 브라우저입니다.');
+      if (document.execCommand('copy')) alert('덱 코드가 복사되었습니다!');
     } finally {
       document.body.removeChild(textArea);
     }
@@ -671,7 +641,6 @@ const copyTeamDeckCode = async (teamNo) => {
 
   const copyToReverseTeam = async (sourceTeamNo = 1) => {
     const sourceTeam = teams.value[sourceTeamNo];
-
     if (!sourceTeam || sourceTeam.length === 0) {
       alert('복사할 원본 덱 데이터가 없습니다.');
       return;
@@ -682,37 +651,28 @@ const copyTeamDeckCode = async (teamNo) => {
 
     const reverseTeamData = sourceTeam.map(hero => {
       const newHero = JSON.parse(JSON.stringify(hero));
-
       if (newHero.grid) {
         const reverseCol = (gridCols - 1) - newHero.grid.col;
         const reverseRow = newHero.grid.row;
-
-        newHero.grid = {
-          col: reverseCol,
-          row: reverseRow
-        };
-
+        newHero.grid = { col: reverseCol, row: reverseRow };
         const idx = getIndexFromGrid(reverseRow, reverseCol);
         if (idx >= 0 && idx < totalCells && newHero.id) {
           gridCodeArray[idx] = String(newHero.id).toUpperCase();
         }
       }
-
       return newHero;
     });
 
     teams.value['1_reverse'] = reverseTeamData;
     let deckCode = gridCodeArray.join('');
 
-    // 📷 리버스 덱용 카메라 위치 문자열 가져오기 및 런타임 에러 해결
     const deckData = selectedBoardDeck.value;
     let rawPos = '';
     if (deckData) {
-      rawPos = deckData[`cameraPosition${sourceTeamNo}`] || 
-               deckData[`camera_pos${sourceTeamNo}`] || 
-               deckData.cameraPosition || 
+      rawPos = deckData[`cameraPosition${sourceTeamNo}`] ||
+               deckData[`camera_pos${sourceTeamNo}`] ||
+               deckData.cameraPosition ||
                deckData.camera_pos || '';
-
       if (!rawPos) {
         const contentStr = deckData[`deck_content${sourceTeamNo}`] || deckData.deck_content1 || '';
         const match = String(contentStr).match(/#([A-Z])/i);
@@ -722,435 +682,105 @@ const copyTeamDeckCode = async (teamNo) => {
 
     if (rawPos) {
       const cameraLetter = String(rawPos).replace('#', '').trim().toUpperCase();
-      if (cameraLetter) {
-        deckCode += `#${cameraLetter}`;
-      }
+      if (cameraLetter) deckCode += `#${cameraLetter}`;
     }
 
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(deckCode);
       } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = deckCode;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
+        copyToClipboardFallback(deckCode);
       }
-
-      if (typeof calculateAllRanges === 'function') {
-        calculateAllRanges();
-      }
-
+      if (typeof calculateAllRanges === 'function') calculateAllRanges();
       alert(`팀 ${sourceTeamNo} 덱 복사! (${deckCode})`);
     } catch (err) {
       console.error('클립보드 복사 실패:', err);
-      alert('리버스 덱 변환은 완료되었으나 클립보드 복사에 실패했습니다.');
     }
   };
 
-  const resetBuffForm = () => {
-    isEditing.value = false;
-    effectSearchText.value = '';
-    heroSearchText.value = '';
-    buffForm.value = { effect_seq: null, effect_code: '', char_id: '', rank_score: 1 };
-  };
-
-const openBuffModal = (options = {}) => {
-  // 🎯 전달받은 width, height가 100 미만이거나 미지정이면 기본값(1100, 850) 사용
-  const reqWidth = (options && options.width > 100) ? options.width : 1100;
-  const reqHeight = (options && options.height > 100) ? options.height : 850;
-
-  const width = Math.floor(reqWidth);
-  const height = Math.floor(reqHeight);
-
-  // 화면 중앙 위치 계산 (정수 변환)
-  const left = Math.max(0, Math.floor((window.screen.width - width) / 2));
-  const top = Math.max(0, Math.floor((window.screen.height - height) / 2));
-
-  const url = '/?view=buff-manage';
-  const title = 'BuffHeroManagementWindow'; // 공백 없는 영문 target명
-
-  const windowFeatures = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
-
-  const popupWindow = window.open(url, title, windowFeatures);
-
-  if (popupWindow) {
-    popupWindow.focus();
-  } else {
-    alert('팝업 차단이 설정되어 있습니다. 팝업 차단을 해제해 주세요.');
-  }
-};
-
-  // 💡 부모 창에서 데이터를 새로고침할 필요가 있을 때 호출할 콜백 처리 (선택 사항)
-  const refreshBuffData = async () => {
-    await fetchSkiaCharEffects();
-    await fetchBuffPool();
-  };    
-
-  const closeBuffModal = () => {
-    showBuffModal.value = false;
-    resetBuffForm();
-  };
-
-  const saveCharEffect = async () => {
-    if (!buffForm.value.effect_code || !buffForm.value.char_id) return alert('모두 입력해주세요.');
-    try {
-      if (isEditing.value) {
-        await axios.put(`${BASE_URL}/api/char-effects/${buffForm.value.effect_seq}`, buffForm.value);
-      } else {
-        const { effect_seq, ...p } = buffForm.value;
-        await axios.post(`${BASE_URL}/api/char-effects`, p);
-      }
-      const code = buffForm.value.effect_code;
-      const txt = effectSearchText.value;
-      resetBuffForm();
-      buffForm.value.effect_code = code;
-      effectSearchText.value = txt;
-      await fetchSkiaCharEffects();
-      await fetchBuffPool();
-    } catch (e) {
-      console.error('캐릭터 효과 저장 실패:', e);
-    }
-  };
-
-  const editCharEffect = (item) => {
-    isEditing.value = true;
-    buffForm.value = { ...item };
-    effectSearchText.value = commonCodes.value.find(c => c.code_id === item.effect_code)?.code_name || item.effect_code;
-    heroSearchText.value = rawHeroList.value.find(h => h.id === item.char_id)?.name || item.char_id;
-  };
-
-// 🎯 [요청 2 수정] DB 저장 전 임시 행 삭제 대응
-  const deleteCharEffect = async (seq, index) => {
-    if (!confirm('삭제하시겠습니까?')) return;
-    
-    // DB 저장 전인 임시 항목이면 배열에서 바로 제거
-    if (!seq) {
-      if (typeof index === 'number') {
-        skiaCharEffects.value.splice(index, 1);
-      }
-      return;
-    }
-
-    try {
-      await axios.delete(`${BASE_URL}/api/char-effects/${seq}`);
-      await fetchSkiaCharEffects();
-      await fetchBuffPool();
-    } catch (e) {
-      console.error('캐릭터 효과 삭제 실패:', e);
-    }
-  };
-
-  const ALLOWED_PREFIXES = ['CCC', 'DOT', 'SYG', 'UTC', 'STB', 'DGB', 'SDB'];
-  const filteredEffectCodes = computed(() => {
-    if (!commonCodes.value) return [];
-    const q = effectSearchText.value.toLowerCase();
-    return commonCodes.value.filter(c => c && ALLOWED_PREFIXES.some(p => c.code_id.startsWith(p)) && (c.code_name.toLowerCase().includes(q) || c.code_id.toLowerCase().includes(q)));
-  });
-
-  const filteredHeroIds = computed(() => {
-    const q = heroSearchText.value.toLowerCase();
-    return rawHeroList.value.filter(h => h.name.toLowerCase().includes(q) || h.id.toLowerCase().includes(q));
-  });
-
-// 🎯 [요청 1 & 3 수정] 효과코드/그룹코드 필터링 및 효과코드(effect_code) 기준 정렬
-  const displayedEffects = computed(() => {
-    let list = [...skiaCharEffects.value];
-
-    // 1. 그룹코드 선택 필터링 (null 안전 처리)
-    if (selectedGroupCode.value && selectedGroupCode.value !== 'ALL') {
-      list = list.filter(item => 
-        item && item.effect_code && String(item.effect_code).startsWith(selectedGroupCode.value)
-      );
-    }
-
-    // 2. 효과코드 텍스트 필터링 (null 안전 처리)
-    const qCode = effectCodeSearchText.value.trim().toLowerCase();
-    if (qCode) {
-      list = list.filter(item => 
-        item && item.effect_code && String(item.effect_code).toLowerCase().includes(qCode)
-      );
-    }
-
-    // 3. 효과코드(effect_code) 오름차순 정렬
-    return list.sort((a, b) => String(a?.effect_code || '').localeCompare(String(b?.effect_code || '')));
-  });
-  const addNewEffectRow = () => {
-    if (!buffForm.value.effect_code || !buffForm.value.char_id) {
-      alert('효과코드와 캐릭터를 모두 입력해주세요.');
-      return;
-    }
-
-    const newRow = {
-      effect_seq: null,
-      effect_code: buffForm.value.effect_code,
-      char_id: buffForm.value.char_id,
-      rank_score: buffForm.value.rank_score || 1,
-      isNew: true
-    };
-
-    skiaCharEffects.value.push(newRow);
-    resetBuffForm();
-  };
-
-  // 🎯 [요청 2 추가] 추가되거나 변경된 항목 일괄 저장 API 호출
-  const saveAllCharEffects = async () => {
-    try {
-      const newItems = skiaCharEffects.value.filter(item => item.isNew || !item.effect_seq);
-      
-      if (newItems.length === 0) {
-        alert('저장할 신규 변경 항목이 없습니다.');
-        return;
-      }
-
-      for (const item of newItems) {
-        const { effect_seq, isNew, ...payload } = item;
-        await axios.post(`${BASE_URL}/api/char-effects`, payload);
-      }
-
-      alert('성공적으로 저장되었습니다.');
-      await fetchSkiaCharEffects();
-      await fetchBuffPool();
-    } catch (e) {
-      console.error('효과 매핑 일괄 저장 실패:', e);
-      alert('저장 중 오류가 발생했습니다.');
-    }
-  };
-  const MASTER_EFFECT_ORDER1 = [
-    'UTC25', 'UTC26', 'STB03', 
-    'STB07', 'STB08', 'STB22', 
-    'STB01', 'STB25', 'STB10', 
-    'STB12', 'STB24', 'STB13', 
-    'STB16', 'STB21', 'STB05', 
-    'STB26', 'STB19', 'STB14', 
-    'SYG01', 'SYG02'
+  // =========================================================================
+  // 📊 하단 현황판용 효과 통합 집계 (7종 해시태그 기준 필터링)
+  // =========================================================================
+  const MASTER_ALL_EFFECT_CODES = [
+    // 치확&저항 (STB)
+    'STB07', 'STB09', 'STB10', 'STB17', 'STB13', 'STB18', 'STB19', 'STB11',
+    // 피해 (STB + DOT)
+    'STB08', 'STB22', 'STB12', 'STB24', 'STB16', 'STB21', 'STB14', 'STB20',
+    'DOT01', 'DOT02', 'DOT03', 'DOT04', 'DOT05', 'DOT06',
+    // 이외 (STB)
+    'STB01', 'STB25', 'STB02', 'STB28', 'STB15', 'STB27', 'STB03', 'STB04', 'STB05', 'STB26', 'STB06', 'STB23',
+    // 피해량 (DGB)
+    'DGB01', 'DGB02', 'DGB03', 'DGB04', 'DGB05', 'DGB06', 'DGB07', 'DGB08', 'DGB09',
+    'DGB10', 'DGB11', 'DGB12', 'DGB13', 'DGB14', 'DGB15', 'DGB16', 'DGB17', 'DGB18',
+    'DGB19', 'DGB20', 'DGB21', 'DGB22', 'DGB23', 'DGB24', 'DGB25', 'DGB26', 'DGB31',
+    // CC&시너지 (CCC + SYG)
+    'SYG01', 'SYG02',
+    'CCC01', 'CCC02', 'CCC03', 'CCC04', 'CCC05', 'CCC06', 'CCC07', 'CCC08',
+    'CCC09', 'CCC10', 'CCC11', 'CCC12', 'CCC13', 'CCC14', 'CCC15',
+    // 디버프 (SDB)
+    'SDB08', 'SDB09', 'SDB12', 'SDB10', 'SDB24', 'SDB11', 'SDB07', 'SDB04', 'SDB13',
+    'SDB19', 'SDB05', 'SDB16', 'SDB03', 'SDB06', 'SDB14', 'SDB21', 'SDB20', 'SDB17',
+    'SDB02', 'SDB22', 'SDB15', 'SDB18', 'SDB23', 'SDB25', 'SDB30',
+    // 유틸 (UTC)
+    'UTC25', 'UTC26', 'UTC22', 'UTC28', 'UTC27', 'UTC29', 'UTC21', 'UTC24',
+    'UTC01', 'UTC30', 'UTC02', 'UTC03', 'UTC23', 'UTC04', 'UTC05', 'UTC06', 'UTC07', 'UTC31',
+    'UTC08', 'UTC09', 'UTC10', 'UTC11', 'UTC12', 'UTC13', 'UTC14', 'UTC15', 'UTC16', 'UTC17', 'UTC18', 'UTC19', 'UTC20'
   ];
 
-    const MASTER_EFFECT_ORDER = [
-    'UTC25', 'STB08', 'STB03', 
-    'UTC26', 'STB22', 'STB10', 
-    'STB07', 'STB13', 'STB12', 
-    'STB01', 'STB16', 'STB24', 
-    'STB25', 'STB21', 'STB19', 
-    'STB05', 'STB14', 'SYG01', 
-    'STB26', 'STB20', 'SYG02',
-    'DGB01', 'DGB02', 'DGB03',
-    'DGB04', 'DGB05', 'DGB06',
-    'DGB07', 'DGB08', 'DGB09',
-    'DGB10', 'DGB11', 'DGB12',
-    'DGB13', 'DGB14', 'DGB15',
-    'DGB16', 'DGB17', 'DGB18',
-    'DGB19', 'DGB20', 'DGB21',
-    'DGB22', 'DGB23', 'DGB24', 
-    'DGB25', 'DGB26'          
-  ];
-
-/* 
-stat_buff_code	STB08	치명타 피해 증가	4002	치피+
-stat_buff_code	STB22	최종 치명타 피해 증가	4010	최치피+
-stat_buff_code	STB18	추가 피해 확률 저항 증가	4038	추피확저+
-stat_buff_code	STB13	추가 피해 확률 증가	4007	추피확+
-stat_buff_code	STB16	추가 피해 증가	4008	추피+
-stat_buff_code	STB21	최종 추가 피해량 증가	4002	최추피+
-stat_buff_code	STB14	받는 피해량 감소	4034	받피-
-stat_buff_code	STB20	보스 몬스터 추가 피해량 증가	4014	보스추피+
-
-damage_buff_code	DGB01	특정 디버프 대상 피해량 증가	4101	특디피+
-damage_buff_code	DGB02	길드 보스전 대상 피해량 증가	4102	길보피+
-damage_buff_code	DGB03	출혈 대상 피해량 증가	4103	출혈피+
-damage_buff_code	DGB04	화상 대상 피해량 증가	4104	화상피+
-damage_buff_code	DGB05	중독 대상 피해량 증가	4105	중독피+
-damage_buff_code	DGB06	동상 대상 피해량 증가	4106	동상피+
-damage_buff_code	DGB07	기절 대상 피해량 증가	4107	기절피+
-damage_buff_code	DGB08	마비 대상 피해량 증가	4108	마비피+
-damage_buff_code	DGB09	저주 대상 피해량 증가	4109	저주피+
-damage_buff_code	DGB10	침묵 대상 피해량 증가	4110	침묵피+
-damage_buff_code	DGB11	방어형 대상 피해량 증가	4111	방어피+
-damage_buff_code	DGB12	근거리형 대상 피해량 증가	4112	근거리피+
-damage_buff_code	DGB13	원거리형 대상 피해량 증가	4113	원거리피+
-damage_buff_code	DGB14	기능형 대상 피해량 증가	4114	기능형피+
-damage_buff_code	DGB15	악몽 대상 피해량 증가	4115	악몽피증+
-damage_buff_code	DGB16	풍화 대상 피해량 증가	4116	풍화피증+
-damage_buff_code	DGB17	결빙 대상 피해량 증가	4117	결빙피증+
-damage_buff_code	DGB18	군중제어 효과 면역 대상 피해량 증가	4118	군제면피증+
-damage_buff_code	DGB19	부식 대상 피해량 증가	4119	부식피증+
-damage_buff_code	DGB20	혼돈의 유적 대상 피해량 증가	4120	혼돈피증+
-damage_buff_code	DGB21	지속 피해량 증가:출혈	4121	출혈지피+
-damage_buff_code	DGB22	지속 피해량 증가:화상	4122	화상지피+
-damage_buff_code	DGB23	지속 피해량 증가:중독	4123	중독지피+
-damage_buff_code	DGB24	지속 피해량 증가:동상	4124	동상지피+
-damage_buff_code	DGB25	지속 피해량 증가:풍화	4125	풍화지피+
-damage_buff_code	DGB26	지속 피해량 증가:부식	4126	부식지피+
-*/
-
-  const MASTER_EFFECT_CCCDOT_ORDER = [
-    'DOT01', 'DOT02', 'DOT03', 
-    'DOT04', 'DOT05', 'DOT06', 
-    'CCC01', 'CCC02', 'CCC03',
-    'CCC04', 'CCC05', 'CCC06',
-    'CCC07', 'CCC08', 'CCC09',
-    'CCC10', 'CCC11'
-  ];
-
-  const MASTER_EFFECT_DEBUFF_ORDER1 = [
-    'SDB10', 'SDB17', 'SDB03', 
-    'SDB21', 'SDB20', 'SDB07', 
-    'SDB19', 'SDB08', 'SDB09', 
-    'SDB06', 'SDB04', 'SDB16', 
-    'SDB18', 'SDB05', 'SDB12', 
-    'SDB22', 'SDB23', 'SDB15', 
-    'SDB14'
-  ];
-
-  const MASTER_EFFECT_DEBUFF_ORDER = [
-    'SDB08', 'SDB09', 'SDB12', 
-    'SDB10', 'SDB24', 'SDB11', 
-    'SDB07', 'SDB04', 'SDB13', 
-    'SDB19', 'SDB05', 'SDB16', 
-    'SDB03', 'SDB06', 'SDB14', 
-    'SDB21', 'SDB20', 'SDB17', 
-    'SDB02', 'SDB22', 'SDB15', 
-    'SDB18', 'SDB23', 'SDB25', 
-    'SDB30', 'etc1','etc2'
-  ];  
-
-/*
-stat_debuff_code	SDB08	치명타 확률 감소	4208	치확-
-stat_debuff_code	SDB10	치명타 확률 저항 감소	4210	치확저-
-stat_debuff_code	SDB07	회피 감소	4202	회피-
-stat_debuff_code	SDB19	최종 회피 감소	4203	최회-
-stat_debuff_code	SDB03	방어력 감소	4201	방어력-
-stat_debuff_code	SDB21	최종 방어력 감소	4205	최방-
-stat_debuff_code	SDB02	공격력 감소	4210	공격력-
-stat_debuff_code	SDB18	최종 공격력 감소	4218	최공-
-
-stat_debuff_code	SDB09	치명타 피해 감소	4209	치피-
-stat_debuff_code	SDB24	최종 치명타 피해 감소	4208	최치피-
-stat_debuff_code	SDB04	공격속도 감소	4204	공속-
-stat_debuff_code	SDB05	이동속도 감소	4205	이속-
-stat_debuff_code	SDB06	명중 감소	4203	명중-
-stat_debuff_code	SDB20	최종 명중 감소	4204	최명-
-stat_debuff_code	SDB22	최종 생명력 감소	4206	최생-
-stat_debuff_code	SDB23	최종 생명력 회복 감소	4207	최생회-
-
-stat_debuff_code	SDB12	경감 확률 감소	4212	경확-
-stat_debuff_code	SDB11	약점 공격 확률 감소	4211	약공확-
-stat_debuff_code	SDB13	약점 공격 피해 감소	4213	약공피-
-stat_debuff_code	SDB16	약점 공격 확률 저항 감소	4216	약공확저-
-stat_debuff_code	SDB14	추가 피해 확률 감소	4214	추피확-
-stat_debuff_code	SDB17	추가 피해 확률 저항 감소	4217	추피확저-
-stat_debuff_code	SDB15	받는 피해량 증가	4215	받피+
-stat_debuff_code	SDB25	최종 약점 공격 피해 감소	4219	최약피-
-stat_debuff_code	SDB30	특정 디버프	4209	특정디버프
-*/
-
-
-  const effectGroupedList = computed(() => {
+  const allEffectGroupedList = computed(() => {
     const groups = {};
 
-    MASTER_EFFECT_ORDER.forEach(code => {
-      if (!code) return;
-      const nameShort = typeof getCodeName === 'function' ? getCodeName(code) : code;
+    MASTER_ALL_EFFECT_CODES.forEach(code => {
+      const nameShort = getCodeName(code);
       groups[code] = {
         effectCode: code,
         effectNameShort: nameShort,
         effectName: nameShort,
+        tagKey: classifyEffectTag(code, nameShort, nameShort),
         sources: []
       };
     });
 
-    [1, 2, 3].forEach(teamNo => {
+    [1, 2, 3, '1_reverse'].forEach(teamNo => {
       if (!teams.value || !teams.value[teamNo]) return;
       teams.value[teamNo].forEach(char => {
         if (!char.grid || !char.buffs) return;
         Object.values(char.buffs).forEach(buff => {
-          if (buff && buff.target_code === 'TGT02') {
-            const code = buff.effect_code || 'NONE';
-            
-            if (!groups[code]) {
-              const shortName = typeof getCodeName === 'function' ? getCodeName(code) : code;
-              groups[code] = {
-                effectCode: code,
-                effectNameShort: buff.effect_code_name_short || shortName || '기타 효과',
-                effectName: buff.effect_code_name || buff.name || shortName || '기타 효과',
-                sources: []
-              };
-            }
+          if (!buff) return;
+          const code = String(buff.effect_code || '').trim().toUpperCase();
+          if (!code) return;
 
-            let skillLabel = buff.skill_code === 'SKI01' ? 'N' : buff.skill_code === 'SKI02' ? 'C' : 'A';
-            groups[code].sources.push({
-              teamNo,
-              charName: char.name,
-              charValue: buff.effect_value || '0',
-              skillDesc: skillLabel
-            });
+          // 아군 적용 버프(TGT02)이거나 적군 디버프/상태이상(SDB/DOT/CCC/디버프)인 경우 집계
+          const isDebuffCode = code.startsWith('SDB') || code.startsWith('DOT') || code.startsWith('CCC') || buff.effect_type === '디버프';
+          const isTeamBuff = buff.target_code === 'TGT02' || code.startsWith('STB') || code.startsWith('DGB') || code.startsWith('SYG') || code.startsWith('UTC');
+
+          if (!isDebuffCode && !isTeamBuff) return;
+
+          if (!groups[code]) {
+            const shortName = getCodeName(code);
+            groups[code] = {
+              effectCode: code,
+              effectNameShort: buff.effect_code_name_short || shortName || code,
+              effectName: buff.effect_code_name || buff.name || shortName || code,
+              tagKey: classifyEffectTag(code, buff.effect_code_name_short || shortName, buff.effect_code_name || buff.name),
+              sources: []
+            };
           }
+
+          const skillLabel = buff.skill_code === 'SKI01' ? 'N' : buff.skill_code === 'SKI02' ? 'C' : 'A';
+          groups[code].sources.push({
+            teamNo,
+            charName: char.name,
+            charValue: buff.effect_value || '0',
+            skillDesc: skillLabel
+          });
         });
       });
     });
 
     const result = [];
-    MASTER_EFFECT_ORDER.forEach(code => {
-      if (code && groups[code]) {
-        result.push(groups[code]);
-        delete groups[code];
-      }
-    });
-    Object.values(groups).forEach(item => result.push(item));
-
-    return result;
-  });
-
-  const debuffGroupedList = computed(() => {
-    const groups = {};
-    const fullDebuffOrder = [...MASTER_EFFECT_DEBUFF_ORDER, ...MASTER_EFFECT_CCCDOT_ORDER];
-
-    fullDebuffOrder.forEach(code => {
-      if (!code || groups[code]) return;
-      const nameShort = typeof getCodeName === 'function' ? getCodeName(code) : code;
-      groups[code] = {
-        effectCode: code,
-        effectNameShort: nameShort,
-        effectName: nameShort,
-        sources: []
-      };
-    });
-
-    [1, 2, 3].forEach(teamNo => {
-      if (!teams.value || !teams.value[teamNo]) return;
-      teams.value[teamNo].forEach(char => {
-        if (!char.grid || !char.buffs) return;
-        Object.values(char.buffs).forEach(buff => {
-          if (buff && buff.effect_type === '디버프') {
-            const code = buff.effect_code || 'NONE';
-            
-            if (!groups[code]) {
-              const shortName = typeof getCodeName === 'function' ? getCodeName(code) : code;
-              groups[code] = {
-                effectCode: code,
-                effectNameShort: buff.effect_code_name_short || shortName || '기타 디버프',
-                effectName: buff.effect_code_name || buff.name || shortName || '기타 효과',
-                sources: []
-              };
-            }
-
-            let skillLabel = buff.skill_code === 'SKI01' ? 'N' : buff.skill_code === 'SKI02' ? 'C' : 'A';
-            groups[code].sources.push({
-              teamNo,
-              charName: char.name,
-              charValue: buff.effect_value || '0',
-              skillDesc: skillLabel
-            });
-          }
-        });
-      });
-    });
-
-    const result = [];
-    fullDebuffOrder.forEach(code => {
-      if (code && groups[code]) {
+    MASTER_ALL_EFFECT_CODES.forEach(code => {
+      if (groups[code]) {
         result.push(groups[code]);
         delete groups[code];
       }
@@ -1166,78 +796,25 @@ stat_debuff_code	SDB30	특정 디버프	4209	특정디버프
     return numericStr ? parseFloat(numericStr) : 0;
   };
 
-  const filteredEffectGroupedList = computed(() => {
-    return effectGroupedList.value.map(g => {
-      const src = g.sources.filter(s => s.teamNo === activeStatusTab.value);
-      const sortedSrc = [...src].sort((a, b) => parseValueStr(b.charValue) - parseValueStr(a.charValue));
-      return { ...g, sources: sortedSrc };
-    });
+  // 선택된 팀(activeStatusTab) + 선택된 해시태그(activeBoardType)에 맞는 현황판 아이템 목록
+  const filteredBoardEffectList = computed(() => {
+    if (activeBoardType.value === 'INFO') return [];
+    return allEffectGroupedList.value
+      .filter(g => g.tagKey === activeBoardType.value)
+      .map(g => {
+        const src = g.sources.filter(s => String(s.teamNo) === String(activeStatusTab.value));
+        const sortedSrc = [...src].sort((a, b) => parseValueStr(b.charValue) - parseValueStr(a.charValue));
+        return { ...g, sources: sortedSrc };
+      });
   });
-
-  const filteredDebuffGroupedList = computed(() => {
-    return debuffGroupedList.value.map(g => {
-      const src = g.sources.filter(s => s.teamNo === activeStatusTab.value);
-      const sortedSrc = [...src].sort((a, b) => parseValueStr(b.charValue) - parseValueStr(a.charValue));
-      return { ...g, sources: sortedSrc };
-    });
-  });
-
-  const getFirstAvailableGridIndex = (teamNo) => {
-    const occupied = new Set((teams.value[teamNo] || []).map(char => `${char.grid?.row},${char.grid?.col}`));
-    for (let i = 0; i < gridRows * gridCols; i++) {
-      const { row, col } = getGridFromIndex(i);
-      if (!occupied.has(`${row},${col}`)) return i;
-    }
-    return -1;
-  };
-
-  const createFullHeroCard = (charId, teamNo, row, col) => {
-    const baseHero = rawHeroList.value.find(h => String(h.id) === String(charId));
-    if (!baseHero) {
-      console.warn(`ID [${charId}]에 해당하는 영웅을 rawHeroList에서 찾을 수 없습니다.`);
-      return null;
-    }
-    const refContainer = arenaRefs.value?.[teamNo];
-    const cellHeight = refContainer ? refContainer.getBoundingClientRect().height / gridRows : cardHeight;
-    const cellWidth = cellHeight;
-    return {
-      ...JSON.parse(JSON.stringify(baseHero)),
-      instanceId: `${charId}_team${teamNo}_${row}_${col}_${Date.now()}`,
-      grid: { row, col },
-      position: {
-        left: col * cellWidth + (cellWidth - cardWidth) / 2,
-        top: row * cellHeight + (cellHeight - cardHeight) / 2
-      },
-      buffs: baseHero.buffs || {}
-    };
-  };
-
-  const handleGridUpdate = async (teamNo, row, col, charId) => {
-    if ((teams.value[teamNo] || []).some(c => c.grid?.row === row && c.grid?.col === col)) return;
-    const newHeroCard = createFullHeroCard(charId, teamNo, row, col);
-    if (!newHeroCard) return;
-    teams.value[teamNo] = [...(teams.value[teamNo] || []), newHeroCard];
-    await nextTick();
-    calculateAllRanges();
-  };
-
-  const onHeroClickAdd = (hero) => {
-    const targetTeam = 1;
-    const emptySlotIndex = getFirstAvailableGridIndex(targetTeam);
-    if (emptySlotIndex === -1) return alert('배치 공간이 없습니다.');
-    const { row, col } = getGridFromIndex(emptySlotIndex);
-    handleGridUpdate(targetTeam, row, col, hero.id);
-  };
 
   function getArcPath(x, y, radius, startAngle, endAngle) {
-    // 🥊 1. 모든 인자를 강제로 숫자로 변환
     const numX = Number(x);
     const numY = Number(y);
     const numRad = Number(radius);
     const numStart = Number(startAngle);
     const numEnd = Number(endAngle);
 
-    // 🥊 2. 하나라도 숫자가 아니거나(NaN), 반지름이 0 이하면 즉시 빈 문자열 반환 (NaN Z 방지)
     if (isNaN(numX) || isNaN(numY) || isNaN(numRad) || isNaN(numStart) || isNaN(numEnd) || numRad <= 0) {
       return '';
     }
@@ -1250,256 +827,223 @@ stat_debuff_code	SDB30	특정 디버프	4209	특정디버프
     const x2 = numX + numRad * Math.cos(endRad);
     const y2 = numY + numRad * Math.sin(endRad);
 
-    // 🥊 3. 계산된 좌표에 NaN이 섞여있는지 최종 검증
-    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) {
-      return '';
-    }
+    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return '';
 
     const largeArcFlag = numEnd - numStart <= 180 ? "0" : "1";
-
     return `M ${numX} ${numY} L ${x1} ${y1} A ${numRad} ${numRad} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
   }
 
-  const computedRanges = ref({ 1: [], 2: [], 3: []});
+  const computedRanges = ref({ 1: [], 2: [], 3: [] });
 
-const calculateAllRanges = async () => {
-  await nextTick();
-  if (!isMounted.value) return;
+  const calculateAllRanges = async () => {
+    await nextTick();
+    if (!isMounted.value) return;
 
-  const teamKeys = ['1', '2', '3', '1_reverse'];
-  const newComputedRanges = {};
+    const teamKeys = ['1', '2', '3', '1_reverse'];
+    const newComputedRanges = {};
 
-  teamKeys.forEach(teamNo => {
-    // ref 참조 (숫자/문자열 키 지원)
-    const refContainer = arenaRefs.value ? (arenaRefs.value[teamNo] || arenaRefs.value[Number(teamNo)]) : null;
-    
-    if (!refContainer) {
-      newComputedRanges[teamNo] = [];
-      return; 
-    }
-
-    const containerRect = refContainer.getBoundingClientRect();
-    if (!containerRect || containerRect.width === 0 || containerRect.height === 0) {
-      newComputedRanges[teamNo] = [];
-      return;
-    }
-
-    // 🎯 [핵심] 컨테이너 기준 격자 1칸의 절대 크기 측정
-    const cellWidth = containerRect.width / gridCols;
-    const cellHeight = containerRect.height / gridRows;
-
-    if (!cellWidth || !cellHeight || isNaN(cellWidth) || isNaN(cellHeight) || cellWidth <= 0 || cellHeight <= 0) {
-      newComputedRanges[teamNo] = [];
-      return;
-    }      
-    
-    const isReverse = String(teamNo).includes('reverse');
-    const widthOffset = containerRect.width > 0 ? containerRect.width : (cellWidth * gridCols);
-    const currentTeamList = teams.value[teamNo] || teams.value[Number(teamNo)] || [];
-
-    newComputedRanges[teamNo] = currentTeamList.map(char => {
-      if (!char || !char.grid || typeof char.grid.col !== 'number' || typeof char.grid.row !== 'number') {
-        return null;
+    teamKeys.forEach(teamNo => {
+      const refContainer = arenaRefs.value ? (arenaRefs.value[teamNo] || arenaRefs.value[Number(teamNo)]) : null;
+      if (!refContainer) {
+        newComputedRanges[teamNo] = [];
+        return;
       }
 
-      // 1. 캐릭터 중심점 (격자 칸 중심)
-      const startX = Number((char.grid.col * cellWidth) + (cellWidth / 2));
-      const startY = Number((char.grid.row * cellHeight) + (cellHeight / 2));
-
-      if (isNaN(startX) || isNaN(startY)) return null;
-
-      // 2. 현재 선택된 스킬 데이터 가져오기
-      const currentSkillKey = selectedSkillClass.value;
-      const totalSkills = char.skills || {};
-      const skillNode = totalSkills[currentSkillKey] || {};
-
-      let baseRange = 8.0;
-      if (typeof skillNode === 'number') {
-        baseRange = skillNode;
-      } else if (skillNode && skillNode.range) {
-        baseRange = parseFloat(skillNode.range);
-      } else if (typeof totalSkills['일반공격'] === 'number') {
-        baseRange = totalSkills['일반공격'];
-      } else if (totalSkills['일반공격']?.range) {
-        baseRange = parseFloat(totalSkills['일반공격'].range);
+      const containerRect = refContainer.getBoundingClientRect();
+      if (!containerRect || containerRect.width === 0 || containerRect.height === 0) {
+        newComputedRanges[teamNo] = [];
+        return;
       }
 
-      if (isNaN(baseRange) || baseRange <= 0) baseRange = 8.0;
+      const cellWidth = containerRect.width / gridCols;
+      const cellHeight = containerRect.height / gridRows;
 
-      // 🎯 [사거리 점선 통일 기준] 
-      const attackRange = baseRange * cellWidth * 0.038;
-
-      const endX = isReverse ? startX - attackRange : startX + attackRange;
-      const endY = startY;
-
-      let shape = '원';
-      let radius = 0;
-      let rectWidth = 0;
-      let rectHeight = 0;
-      let pathD = '';
-      let isForward = false;
-
-      let centerX = endX;
-      let centerY = endY;
-
-      // 🎯 [버프 및 범위 파싱 광범위 매칭]
-      const skillCodeMap = {
-        '일반공격': 'SKI01',
-        '치명타공격': 'SKI02',
-        '액티브공격': 'SKI03'
-      };
-      const targetSkillCode = skillCodeMap[currentSkillKey] || 'SKI03';
-      const buffsList = Array.isArray(char.buffs) ? char.buffs : [];
-      
-      const matchedBuff = buffsList.find(b => 
-        (b.skill_code === targetSkillCode || (b.name && b.name.includes(currentSkillKey))) && 
-        (b.range_type || b.range_detail || b.range_shape || b.shape_type || b.shape)
-      ) || buffsList.find(b => b.range_type || b.range_detail || b.range_shape || b.shape_type || b.shape) || {};
-
-      const rawType = 
-        matchedBuff.range_type || matchedBuff.range_shape || matchedBuff.shape_type || matchedBuff.shape ||
-        (typeof skillNode === 'object' ? (skillNode.range_type || skillNode.range_shape || skillNode.shape_type || skillNode.shape || skillNode.type || skillNode.attack_type) : '') ||
-        char.range_type || char.range_shape || char.shape_type || char.shape || '';
-
-      const rawDetail = 
-        matchedBuff.range_detail || matchedBuff.detail || matchedBuff.desc ||
-        (typeof skillNode === 'object' ? (skillNode.range_detail || skillNode.detail || skillNode.desc || skillNode.skill_desc) : '') ||
-        char.range_detail || char.detail || char.skill_desc || '';
-
-      const rType = String(rawType).toLowerCase();
-      const rDetail = String(rawDetail).toLowerCase();
-
-      const extractMeter = (text) => {
-        if (!text) return 0;
-        const match = text.match(/범위\s*([0-9.]+)\s*m/i) || text.match(/([0-9.]+)\s*m/i);
-        return match ? parseFloat(match[1]) : 0;
-      };
-
-      // 자신/후방 기준 스킬인 경우 시작점으로
-      if (rDetail.includes('자신') || rDetail.includes('후방') || rType.includes('자신')) {
-        centerX = startX;
-        centerY = startY;
+      if (!cellWidth || !cellHeight || isNaN(cellWidth) || isNaN(cellHeight) || cellWidth <= 0 || cellHeight <= 0) {
+        newComputedRanges[teamNo] = [];
+        return;
       }
 
-      if (isNaN(centerX)) centerX = endX;
-      if (isNaN(centerY)) centerY = endY;
+      const isReverse = String(teamNo).includes('reverse');
+      const widthOffset = containerRect.width > 0 ? containerRect.width : (cellWidth * gridCols);
+      const currentTeamList = teams.value[teamNo] || teams.value[Number(teamNo)] || [];
 
-      // 🎯 [격자 1칸(cellWidth) 기준 단일화 환산 비율]
-      const meterToPx = cellWidth * 0.22;
-
-      const isHalfCircle = rType.includes('반원') || rDetail.includes('반원') || rType.includes('half') || rType.includes('semicircle');
-      const isSector = rType.includes('부채꼴') || rDetail.includes('부채꼴') || rType.includes('fan') || rType.includes('sector');
-      const isRect = rType.includes('직선') || rType.includes('사각형') || rType.includes('line') || rType.includes('rect') || rDetail.includes('폭') || rDetail.includes('길이');
-
-      if (isHalfCircle) {
-        shape = '반원';
-        const meter = extractMeter(rDetail) || 3;
-        radius = meter * meterToPx;
-        const startAngle = isReverse ? 90 : -90;
-        const endAngle = isReverse ? 270 : 90;
-        pathD = (radius > 0) ? getArcPath(centerX, centerY, radius, startAngle, endAngle) : '';
-      } 
-      else if (isSector) {
-        shape = '부채꼴';
-        const meter = extractMeter(rDetail) || 3;
-        radius = meter * meterToPx;
-        const startAngle = isReverse ? 150 : -30;
-        const endAngle = isReverse ? 210 : 30;
-        pathD = (radius > 0) ? getArcPath(centerX, centerY, radius, startAngle, endAngle) : '';
-      } 
-      else if (isRect) {
-        shape = '사각형';
-        const wMatch = rDetail.match(/길이\s*([0-9.]+)/i);
-        const hMatch = rDetail.match(/폭\s*([0-9.]+)/i);
-
-        const wMeter = wMatch ? parseFloat(wMatch[1]) : extractMeter(rDetail);
-        const hMeter = hMatch ? parseFloat(hMatch[1]) : 2;
-
-        rectWidth = (wMeter || 3) * meterToPx;
-        rectHeight = (hMeter || 2) * cellHeight * 0.45;
-
-        if (rDetail.includes('전방') || rDetail.includes('후방') || rDetail.includes('직선')) {
-          isForward = true;
-          centerX = startX;
+      newComputedRanges[teamNo] = currentTeamList.map(char => {
+        if (!char || !char.grid || typeof char.grid.col !== 'number' || typeof char.grid.row !== 'number') {
+          return null;
         }
-      } 
-      else {
-        shape = '원';
-        const meter = extractMeter(rDetail) || 2.5;
-        radius = meter * meterToPx;
-      }
 
-      const finalDrawX = (isNaN(centerX) || centerX === undefined) ? endX : centerX;
-      const finalDrawY = (isNaN(centerY) || centerY === undefined) ? endY : centerY;
-      const safeEndX = isNaN(endX) ? startX : endX;
-      const safeEndY = isNaN(endY) ? startY : endY;
-      const safeWidthOffset = isNaN(widthOffset) ? 0 : widthOffset;
-      const bossXOffset = isReverse ? safeWidthOffset : -safeWidthOffset;        
+        const startX = Number((char.grid.col * cellWidth) + (cellWidth / 2));
+        const startY = Number((char.grid.row * cellHeight) + (cellHeight / 2));
+        if (isNaN(startX) || isNaN(startY)) return null;
 
-      return {
-        instanceId: char.instanceId || char.id,
-        name: char.name,
-        color: char.color || '#3b82f6',
-        startX,
-        startY,
-        endX: safeEndX,
-        endY: safeEndY,
-        shape,
-        // 격자 1칸 크기에 꼭 맞춘 기본값 지정
-        radius: isNaN(radius) || radius <= 0 ? cellWidth * 0.38 : radius,
-        width: isNaN(rectWidth) || rectWidth <= 0 ? cellWidth * 1.0 : rectWidth,
-        height: isNaN(rectHeight) || rectHeight <= 0 ? cellHeight * 0.75 : rectHeight,
-        pathD: pathD || '',
-        isForward,
-        isReverse,
-        drawX: finalDrawX,
-        drawY: finalDrawY,
-        bossStartX: startX + bossXOffset,
-        bossEndX: safeEndX + bossXOffset,
-        bossDrawX: finalDrawX + bossXOffset
-      };
-    }).filter(Boolean);
-  });
+        const currentSkillKey = selectedSkillClass.value;
+        const totalSkills = char.skills || {};
+        const skillNode = totalSkills[currentSkillKey] || {};
 
-  computedRanges.value = newComputedRanges;
-};
+        let baseRange = 8.0;
+        if (typeof skillNode === 'number') {
+          baseRange = skillNode;
+        } else if (skillNode && skillNode.range) {
+          baseRange = parseFloat(skillNode.range);
+        } else if (typeof totalSkills['일반공격'] === 'number') {
+          baseRange = totalSkills['일반공격'];
+        } else if (totalSkills['일반공격']?.range) {
+          baseRange = parseFloat(totalSkills['일반공격'].range);
+        }
 
-  // 📷 1. 런타임 드래그 위치를 즉시 반영하기 위한 로컬 상태 추가
-  const localCameraGridPositions = ref({});   
+        if (isNaN(baseRange) || baseRange <= 0) baseRange = 8.0;
 
-  // 🎯 각 팀별 카메라 위치 정보 계산 (우상단 기준 세로 순서 알파벳 파싱)
+        const attackRange = baseRange * cellWidth * 0.038;
+        const endX = isReverse ? startX - attackRange : startX + attackRange;
+        const endY = startY;
+
+        let shape = '원';
+        let radius = 0;
+        let rectWidth = 0;
+        let rectHeight = 0;
+        let pathD = '';
+        let isForward = false;
+
+        let centerX = endX;
+        let centerY = endY;
+
+        const skillCodeMap = {
+          '일반공격': 'SKI01',
+          '치명타공격': 'SKI02',
+          '액티브공격': 'SKI03'
+        };
+        const targetSkillCode = skillCodeMap[currentSkillKey] || 'SKI03';
+        const buffsList = Array.isArray(char.buffs) ? char.buffs : [];
+
+        const matchedBuff = buffsList.find(b =>
+          (b.skill_code === targetSkillCode || (b.name && b.name.includes(currentSkillKey))) &&
+          (b.range_type || b.range_detail || b.range_shape || b.shape_type || b.shape)
+        ) || buffsList.find(b => b.range_type || b.range_detail || b.range_shape || b.shape_type || b.shape) || {};
+
+        const rawType =
+          matchedBuff.range_type || matchedBuff.range_shape || matchedBuff.shape_type || matchedBuff.shape ||
+          (typeof skillNode === 'object' ? (skillNode.range_type || skillNode.range_shape || skillNode.shape_type || skillNode.shape || skillNode.type || skillNode.attack_type) : '') ||
+          char.range_type || char.range_shape || char.shape_type || char.shape || '';
+
+        const rawDetail =
+          matchedBuff.range_detail || matchedBuff.detail || matchedBuff.desc ||
+          (typeof skillNode === 'object' ? (skillNode.range_detail || skillNode.detail || skillNode.desc || skillNode.skill_desc) : '') ||
+          char.range_detail || char.detail || char.skill_desc || '';
+
+        const rType = String(rawType).toLowerCase();
+        const rDetail = String(rawDetail).toLowerCase();
+
+        const extractMeter = (text) => {
+          if (!text) return 0;
+          const match = text.match(/범위\s*([0-9.]+)\s*m/i) || text.match(/([0-9.]+)\s*m/i);
+          return match ? parseFloat(match[1]) : 0;
+        };
+
+        if (rDetail.includes('자신') || rDetail.includes('후방') || rType.includes('자신')) {
+          centerX = startX;
+          centerY = startY;
+        }
+
+        if (isNaN(centerX)) centerX = endX;
+        if (isNaN(centerY)) centerY = endY;
+
+        const meterToPx = cellWidth * 0.22;
+        const isHalfCircle = rType.includes('반원') || rDetail.includes('반원') || rType.includes('half') || rType.includes('semicircle');
+        const isSector = rType.includes('부채꼴') || rDetail.includes('부채꼴') || rType.includes('fan') || rType.includes('sector');
+        const isRect = rType.includes('직선') || rType.includes('사각형') || rType.includes('line') || rType.includes('rect') || rDetail.includes('폭') || rDetail.includes('길이');
+
+        if (isHalfCircle) {
+          shape = '반원';
+          const meter = extractMeter(rDetail) || 3;
+          radius = meter * meterToPx;
+          const startAngle = isReverse ? 90 : -90;
+          const endAngle = isReverse ? 270 : 90;
+          pathD = (radius > 0) ? getArcPath(centerX, centerY, radius, startAngle, endAngle) : '';
+        } else if (isSector) {
+          shape = '부채꼴';
+          const meter = extractMeter(rDetail) || 3;
+          radius = meter * meterToPx;
+          const startAngle = isReverse ? 150 : -30;
+          const endAngle = isReverse ? 210 : 30;
+          pathD = (radius > 0) ? getArcPath(centerX, centerY, radius, startAngle, endAngle) : '';
+        } else if (isRect) {
+          shape = '사각형';
+          const wMatch = rDetail.match(/길이\s*([0-9.]+)/i);
+          const hMatch = rDetail.match(/폭\s*([0-9.]+)/i);
+          const wMeter = wMatch ? parseFloat(wMatch[1]) : extractMeter(rDetail);
+          const hMeter = hMatch ? parseFloat(hMatch[1]) : 2;
+          rectWidth = (wMeter || 3) * meterToPx;
+          rectHeight = (hMeter || 2) * cellHeight * 0.45;
+          if (rDetail.includes('전방') || rDetail.includes('후방') || rDetail.includes('직선')) {
+            isForward = true;
+            centerX = startX;
+          }
+        } else {
+          shape = '원';
+          const meter = extractMeter(rDetail) || 2.5;
+          radius = meter * meterToPx;
+        }
+
+        const finalDrawX = (isNaN(centerX) || centerX === undefined) ? endX : centerX;
+        const finalDrawY = (isNaN(centerY) || centerY === undefined) ? endY : centerY;
+        const safeEndX = isNaN(endX) ? startX : endX;
+        const safeEndY = isNaN(endY) ? startY : endY;
+        const safeWidthOffset = isNaN(widthOffset) ? 0 : widthOffset;
+        const bossXOffset = isReverse ? safeWidthOffset : -safeWidthOffset;
+
+        return {
+          instanceId: char.instanceId || char.id,
+          name: char.name,
+          color: char.color || '#3b82f6',
+          startX,
+          startY,
+          endX: safeEndX,
+          endY: safeEndY,
+          shape,
+          radius: isNaN(radius) || radius <= 0 ? cellWidth * 0.38 : radius,
+          width: isNaN(rectWidth) || rectWidth <= 0 ? cellWidth * 1.0 : rectWidth,
+          height: isNaN(rectHeight) || rectHeight <= 0 ? cellHeight * 0.75 : rectHeight,
+          pathD: pathD || '',
+          isForward,
+          isReverse,
+          drawX: finalDrawX,
+          drawY: finalDrawY,
+          bossStartX: startX + bossXOffset,
+          bossEndX: safeEndX + bossXOffset,
+          bossDrawX: finalDrawX + bossXOffset
+        };
+      }).filter(Boolean);
+    });
+
+    computedRanges.value = newComputedRanges;
+  };
+
+  const localCameraGridPositions = ref({});
+
   const teamCameraGridPositions = computed(() => {
     const result = {};
     const deckData = selectedBoardDeck.value;
     if (!deckData) return result;
 
     [1, 2, 3].forEach(teamNo => {
-      // 💡 A. 사용자가 직접 드래그해서 변경한 로컬 위치가 있다면 우선 사용
       let rawPos = localCameraGridPositions.value[teamNo] || '';
-
-      // 💡 B. 로컬 위치가 없으면 덱 데이터/코드에서 파싱
       if (!rawPos && deckData) {
         rawPos = deckData[`cameraPosition${teamNo}`] || deckData[`camera_pos${teamNo}`] || '';
-        
         if (!rawPos) {
           const contentStr = deckData[`deck_content${teamNo}`] || '';
           const match = String(contentStr).match(/#([A-Y])/i);
-          if (match && match[1]) {
-            rawPos = match[1];
-          }
+          if (match && match[1]) rawPos = match[1];
         }
-
         if (!rawPos && teamNo === 1) {
           rawPos = deckData.cameraPosition || deckData.camera_pos || '';
         }
       }
 
       if (!rawPos) return;
-
       const pos = String(rawPos).replace('#', '').trim().toUpperCase();
       if (!pos) return;
 
-      const letterIndex = pos.charCodeAt(0) - 65; // 'A' = 0 ~ 'Y' = 24
+      const letterIndex = pos.charCodeAt(0) - 65;
       if (letterIndex < 0 || letterIndex >= 25) return;
 
       const colFromRight = Math.floor(letterIndex / 5);
@@ -1528,7 +1072,6 @@ const calculateAllRanges = async () => {
 
       const cells = arenaEl.querySelectorAll('.grid-cell, .board-cell, .cell');
       const targetCell = cells[gridPos.index] || (arenaEl.children ? arenaEl.children[gridPos.index] : null);
-
       if (!targetCell) return;
 
       const arenaRect = arenaEl.getBoundingClientRect();
@@ -1564,175 +1107,119 @@ const calculateAllRanges = async () => {
     }
   };
 
-// 1. RAW API 응답 데이터를 저장하는 ref (기존 selectedHeroDetail 역할을 대체)
-const selectedHeroDetailRaw = ref(null);
-const isLoadingHeroDetail = ref(false);
+  // 캐릭터 상세 정보
+  const selectedHeroDetailRaw = ref(null);
+  const isLoadingHeroDetail = ref(false);
 
-const selectedHeroDetail = computed(() => {
-  if (!selectedHeroDetailRaw.value) return null;
+  const selectedHeroDetail = computed(() => {
+    if (!selectedHeroDetailRaw.value) return null;
 
-  const rawBuffs = selectedHeroDetailRaw.value.buffs || [];
-  const { buffs, ...heroBase } = selectedHeroDetailRaw.value;
+    const rawBuffs = selectedHeroDetailRaw.value.buffs || [];
+    const { buffs, ...heroBase } = selectedHeroDetailRaw.value;
 
-  // 문자열 공백/대소문자 무시 안전 탐색 함수
-  const findBuff = (skillCode, effectCode) => {
-    return rawBuffs.find(b => {
-      const matchSkill = String(b.skill_code || '').trim().toUpperCase() === skillCode.toUpperCase();
-      if (!effectCode) return matchSkill;
-      const matchEffect = String(b.effect_code || '').trim().toUpperCase() === effectCode.toUpperCase();
-      return matchSkill && matchEffect;
+    const findBuff = (skillCode, effectCode) => {
+      return rawBuffs.find(b => {
+        const matchSkill = String(b.skill_code || '').trim().toUpperCase() === skillCode.toUpperCase();
+        if (!effectCode) return matchSkill;
+        const matchEffect = String(b.effect_code || '').trim().toUpperCase() === effectCode.toUpperCase();
+        return matchSkill && matchEffect;
+      });
+    };
+
+    const normalSkill = findBuff('SKI01') || {};
+    const critSkillSdc02 = findBuff('SKI02', 'SDC02');
+    const critSkillBase = findBuff('SKI02') || {};
+    const activeSkillSdc01 = findBuff('SKI03', 'SDC01');
+    const activeSkillBase = findBuff('SKI03') || {};
+
+    const formatArea = (skill) => {
+      if (!skill) return '-';
+      if (skill.range_x && skill.range_y) return `${skill.range_x}m*${skill.range_y}m`;
+      if (skill.range_detail && String(skill.range_detail).trim() !== '') return skill.range_detail;
+      return '-';
+    };
+
+    const critName = critSkillSdc02 ? (critSkillSdc02.effect_code_name || critSkillSdc02.buff_name || critSkillSdc02.name || '') : '';
+    const critVal = critSkillSdc02 && critSkillSdc02.effect_value ? `${critSkillSdc02.effect_value}${critSkillSdc02.unit || '%'}` : '-';
+    const critMaxDmg = critSkillSdc02 ? (critSkillSdc02.calculated_value || (critSkillSdc02.effect_value ? `${critSkillSdc02.effect_value}${critSkillSdc02.unit || '%'}` : '-')) : '-';
+    const critRange = (critSkillBase.range !== null && critSkillBase.range !== undefined) ? `${critSkillBase.range}` : '-';
+
+    const activeName = activeSkillSdc01 ? (activeSkillSdc01.effect_code_name || activeSkillSdc01.buff_name || activeSkillSdc01.name || '') : '-';
+    const activeVal = activeSkillSdc01 && activeSkillSdc01.effect_value ? `${activeSkillSdc01.effect_value}${activeSkillSdc01.unit || '%'}` : '-';
+    const activeMaxDmg = activeSkillSdc01 ? (activeSkillSdc01.calculated_value || (activeSkillSdc01.effect_value ? `${activeSkillSdc01.effect_value}${activeSkillSdc01.unit || '%'}` : '-')) : '-';
+
+    return {
+      ...heroBase,
+      buffs: rawBuffs,
+      normal_damage_name: normalSkill.effect_code_name || normalSkill.buff_name || '',
+      normal_damage: normalSkill.calculated_value || (normalSkill.effect_value ? `${normalSkill.effect_value}${normalSkill.unit || '%'}` : '0%'),
+      critSdc02_damage_name: critName,
+      critSdc02_value: critVal,
+      critSdc02_damage: critMaxDmg,
+      critSdc02_range: critRange,
+      activeSdc01_skill_name: activeName,
+      activeSdc01_effect_value: activeVal,
+      activeSdc01_damage: activeMaxDmg,
+      activeSdc01_shape: activeSkillBase.range_type || activeSkillBase.range_shape || '-',
+      activeSdc01_area: formatArea(activeSkillBase),
+      activeSdc01_range: (activeSkillBase.range !== null && activeSkillBase.range !== undefined) ? `${activeSkillBase.range}` : '-',
+      activeSdc01_cooldown: (activeSkillBase.cooldown !== null && activeSkillBase.cooldown !== undefined) ? `${activeSkillBase.cooldown}초` : '-'
+    };
+  });
+
+  const fetchHeroDetail = async (charId) => {
+    if (!charId) {
+      selectedHeroDetailRaw.value = null;
+      return;
+    }
+    try {
+      isLoadingHeroDetail.value = true;
+      const response = await axios.get(`${BASE_URL}/api/chars/detail/${charId}`);
+      selectedHeroDetailRaw.value = response.data;
+    } catch (error) {
+      console.error('캐릭터 상세 정보 로드 실패:', error);
+      selectedHeroDetailRaw.value = null;
+    } finally {
+      isLoadingHeroDetail.value = false;
+    }
+  };
+
+  watch(() => selectedHeroName.value, (newHeroName) => {
+    if (newHeroName) {
+      const targetHero = rawHeroList.value.find(h => h.name === newHeroName || h.id === newHeroName)
+                      || filteredHeroPool.value.find(h => h.name === newHeroName || h.id === newHeroName);
+      if (targetHero && targetHero.id) {
+        fetchHeroDetail(targetHero.id);
+      }
+    } else {
+      selectedHeroDetailRaw.value = null;
+    }
+  });
+
+  const getBuffsByCategory = (categoryType) => {
+    if (!selectedHeroDetailRaw.value || !selectedHeroDetailRaw.value.buffs) return [];
+    return selectedHeroDetailRaw.value.buffs.filter(b => {
+      const isDebuff = b.effect_type === '디버프' ||
+                       (b.effect_code && (b.effect_code.startsWith('SDB') || b.effect_code.startsWith('DOT') || b.effect_code.startsWith('CCC')));
+      const target = String(b.target_type || b.target_code || '');
+      const isTeam = (target.includes('아군') || target === 'TGT02') && !isDebuff;
+      const isSelf = (target.includes('자신') || target === 'TGT01' || target === 'TPC02' || target === 'TGT03' || target === 'TGT04') && !isDebuff && !isTeam;
+
+      if (categoryType === 'DEBUFF') return isDebuff;
+      if (categoryType === 'SELF_BUFF') return isSelf;
+      if (categoryType === 'TEAM_BUFF') return isTeam;
+      return false;
     });
   };
 
-  // 1. 일반공격 (SKI01)
-  const normalSkill = findBuff('SKI01') || {};
-
-  // 🌟 2. 치명타공격 (SKI02) - SDC02 엄격 탐색 (없으면 empty)
-  const critSkillSdc02 = findBuff('SKI02', 'SDC02');
-  const critSkillBase = findBuff('SKI02') || {};
-
-  // 🌟 3. 액티브스킬 (SKI03) - SDC01 엄격 탐색 (|| findBuff('SKI03') 제거!)
-  const activeSkillSdc01 = findBuff('SKI03', 'SDC01');
-  const activeSkillBase = findBuff('SKI03') || {};
-
-  // 범위 포맷 함수
-  const formatArea = (skill) => {
-    if (!skill) return '-';
-    if (skill.range_x && skill.range_y) return `${skill.range_x}m*${skill.range_y}m`;
-    if (skill.range_detail && String(skill.range_detail).trim() !== '') return skill.range_detail;
-    return '-';
-  };
-
-  // ----------------------------------------------------
-  // 🌟 치명타 피해량 (SDC02) - 존재할 때만 값 바인딩
-  // ----------------------------------------------------
-  const critName = critSkillSdc02 ? (critSkillSdc02.effect_code_name || critSkillSdc02.buff_name || critSkillSdc02.name || '') : '';
-  const critVal = critSkillSdc02 && critSkillSdc02.effect_value ? `${critSkillSdc02.effect_value}${critSkillSdc02.unit || '%'}` : '-';
-  const critMaxDmg = critSkillSdc02 ? (critSkillSdc02.calculated_value || (critSkillSdc02.effect_value ? `${critSkillSdc02.effect_value}${critSkillSdc02.unit || '%'}` : '-')) : '-';
-  const critRange = (critSkillBase.range !== null && critSkillBase.range !== undefined) ? `${critSkillBase.range}` : '-';
-
-  // ----------------------------------------------------
-  // 🌟 액티브 피해량 (SDC01) - SDC01이 없으면 '-'로 안전 처리
-  // ----------------------------------------------------
-  const activeName = activeSkillSdc01 ? (activeSkillSdc01.effect_code_name || activeSkillSdc01.buff_name || activeSkillSdc01.name || '') : '-';
-  const activeVal = activeSkillSdc01 && activeSkillSdc01.effect_value ? `${activeSkillSdc01.effect_value}${activeSkillSdc01.unit || '%'}` : '-';
-  const activeMaxDmg = activeSkillSdc01 ? (activeSkillSdc01.calculated_value || (activeSkillSdc01.effect_value ? `${activeSkillSdc01.effect_value}${activeSkillSdc01.unit || '%'}` : '-')) : '-';
-
-  return {
-    ...heroBase,
-    buffs: rawBuffs,
-
-    // 1. 일반공격
-    normal_damage_name: normalSkill.effect_code_name || normalSkill.buff_name || '',
-    normal_damage: normalSkill.calculated_value || (normalSkill.effect_value ? `${normalSkill.effect_value}${normalSkill.unit || '%'}` : '0%'),
-
-    // 2-1. 치명타 기본 필드
-    crit_damage_name: critName,
-    crit_value: critVal,
-    crit_damage: critMaxDmg,
-    crit_unit: critSkillSdc02 ? (critSkillSdc02.unit || '%') : '%',
-    crit_range: critRange,
-
-    // 2-2. 치명타 SDC02 전용 필드
-    critSdc02_damage_name: critName,
-    critSdc02_value: critVal,
-    critSdc02_damage: critMaxDmg,
-    critSdc02_unit: critSkillSdc02 ? (critSkillSdc02.unit || '%') : '%',
-    critSdc02_range: critRange,
-
-    // 3-1. 액티브 기본 필드
-    active_skill_name: activeName,
-    effect_value: activeVal,
-    active_damage: activeMaxDmg,
-    unit: activeSkillSdc01 ? (activeSkillSdc01.unit || '%') : '%',
-    active_shape: activeSkillBase.range_type || activeSkillBase.range_shape || '-',
-    active_area: formatArea(activeSkillBase),
-    active_range: (activeSkillBase.range !== null && activeSkillBase.range !== undefined) ? `${activeSkillBase.range}` : '-',
-    active_cooldown: (activeSkillBase.cooldown !== null && activeSkillBase.cooldown !== undefined) ? `${activeSkillBase.cooldown}초` : '-',
-
-    // 3-2. 액티브 SDC01 전용 필드
-    activeSdc01_skill_name: activeName,
-    activeSdc01_effect_value: activeVal,
-    activeSdc01_damage: activeMaxDmg,
-    activeSdc01_unit: activeSkillSdc01 ? (activeSkillSdc01.unit || '%') : '%',
-    activeSdc01_shape: activeSkillBase.range_type || activeSkillBase.range_shape || '-',
-    activeSdc01_area: formatArea(activeSkillBase),
-    activeSdc01_range: (activeSkillBase.range !== null && activeSkillBase.range !== undefined) ? `${activeSkillBase.range}` : '-',
-    activeSdc01_cooldown: (activeSkillBase.cooldown !== null && activeSkillBase.cooldown !== undefined) ? `${activeSkillBase.cooldown}초` : '-'
-  };
-});
-
-// 3. 영웅 선택 시 백엔드 API 호출하여 세부 정보 로드
-const fetchHeroDetail = async (charId) => {
-  if (!charId) {
-    selectedHeroDetailRaw.value = null;
-    return;
-  }
-  
-  try {
-    isLoadingHeroDetail.value = true;
-    const response = await axios.get(`${BASE_URL}/api/chars/detail/${charId}`);
-    // RAW 응답 객체를 selectedHeroDetailRaw에 저장 -> selectedHeroDetail computed가 자동 갱신됨
-    selectedHeroDetailRaw.value = response.data;
-  } catch (error) {
-    console.error('캐릭터 상세 정보 로드 실패:', error);
-    selectedHeroDetailRaw.value = null;
-  } finally {
-    isLoadingHeroDetail.value = false;
-  }
-};
-
-// 4. 선택된 영웅 변경 감지 Watcher
-watch(() => selectedHeroName.value, (newHeroName) => {
-  if (newHeroName) {
-    const targetHero = rawHeroList.value.find(h => h.name === newHeroName || h.id === newHeroName) 
-                    || filteredHeroPool.value.find(h => h.name === newHeroName || h.id === newHeroName);
-    
-    if (targetHero && targetHero.id) {
-      fetchHeroDetail(targetHero.id);
+  const handleHeroSelect = (char, teamNo = null) => {
+    if (teamNo !== null) {
+      activeStatusTab.value = teamNo;
     }
-  } else {
-    selectedHeroDetailRaw.value = null;
-  }
-});
-
-// 5. 코드 기준 정밀 버프 분류 함수 (selectedHeroDetailRaw 기반 판별)
-const getBuffsByCategory = (categoryType) => {
-  if (!selectedHeroDetailRaw.value || !selectedHeroDetailRaw.value.buffs) return [];
-
-  return selectedHeroDetailRaw.value.buffs.filter(b => {
-    // 1. 디버프 판별 (effect_type이 '디버프'이거나 effect_code가 SDB, DOT, CCC로 시작하는 경우)
-    const isDebuff = b.effect_type === '디버프' || 
-                     (b.effect_code && (b.effect_code.startsWith('SDB') || b.effect_code.startsWith('DOT') || b.effect_code.startsWith('CCC')));
-    
-    // 2. target_code 또는 target_type 텍스트 통합 판별
-    const target = String(b.target_type || b.target_code || '');
-
-    // 아군 버프 (TGT02 또는 '아군' 포함)
-    const isTeam = (target.includes('아군') || target === 'TGT02') && !isDebuff;    
-    
-    // 자신 버프 (TGT01, TPC02 또는 '자신' 포함)
-    const isSelf = (target.includes('자신') || target === 'TGT01' || target === 'TPC02' || target === 'TGT03' || target === 'TGT04') && !isDebuff && !isTeam;
-
-    if (categoryType === 'DEBUFF') return isDebuff;
-    if (categoryType === 'SELF_BUFF') return isSelf;
-    if (categoryType === 'TEAM_BUFF') return isTeam;
-    return false;
-  });
-};
-
-// 4. 캐릭터 클릭 시 선택 핸들러
-const handleHeroSelect = (char) => {
-  selectHero(char);
-  // activeBoardType.value = 'info'; // 필요 시 탭 전환
-};
+    selectHero(char);
+  };
 
   onMounted(async () => {
-    window.addEventListener('message', (event) => {
-      if (event.data?.type === 'REFRESH_BUFF_POOL' && typeof refreshBuffData === 'function') {
-        refreshBuffData();
-      }
-    });
     await fetchCommonCodes();
     await fetchBoardDecks();
     await fetchAllHeroPool();
@@ -1746,15 +1233,11 @@ const handleHeroSelect = (char) => {
   watch(
     () => selectedBoardDeck.value?.id || selectedBoardDeck.value?.deck_seq || selectedBoardDeck.value,
     async (newVal) => {
-      // 1. 드래그했던 로컬 카메라 위치 기록 완전 초기화
       localCameraGridPositions.value = {};
-
       if (!isMounted.value || !newVal) {
         cameraPositions.value = {};
         return;
       }
-
-      // 2. 덱이 변경되었으므로 덱 파싱 및 픽셀 위치 재계산 수행
       await loadSelectedBoardDeck();
     },
     { immediate: true }
@@ -1762,43 +1245,30 @@ const handleHeroSelect = (char) => {
 
   return {
     isAdmin,
+    isSyncingEffects,
+    syncCharEffects,
     isPoolCollapsed,
     selectedBoardDeck,
     boardDecks,
     selectedSkillClass,
     arenaRefs,
     setArenaRef,
-    draggingChar,
-    draggingFromTeam,
     rawHeroList,
     buffHeroPool,
-    heroGradeFilter,
+    heroPoolFilter,
+    isEffectTagMode,
     heroSearchKeyword,
     teams,
     commonCodes,
     selectedHeroName,
     selectHero,
-    showBuffModal,
-    isEditing,
-    skiaCharEffects,
-    buffForm,
-    effectSearchText,
-    heroSearchText,
     activeChars,
     getTeamCharCount,
-    placedHeroIds,
     getAssignedTeam,
     isHeroPlaced,
     filteredHeroPool,
-    buffSubFilter,
-    groupedBuffHeroes,
-    fetchCommonCodes,
-    fetchBoardDecks,
-    fetchAllHeroPool,
-    fetchBuffPool,
-    fetchSkiaCharEffects,
+    groupedTagHeroes,
     loadSelectedBoardDeck,
-    handleDeckCodeParse,
     parseMeterValue,
     computedRanges,
     calculateAllRanges,
@@ -1811,44 +1281,18 @@ const handleHeroSelect = (char) => {
     removeHero,
     clearTeam,
     activeStatusTab,
+    selectStatusTeam,
     activeBoardType,
     getStatusTabLabel,
     getHeroImage,
     handleImageError,
     copyTeamDeckCode,
     copyToReverseTeam,
-    openBuffModal,
-    refreshBuffData,    
-    closeBuffModal,
-    resetBuffForm,
-    saveCharEffect,
-    editCharEffect,
-    deleteCharEffect,
-    effectCodeSearchText,
-    selectedGroupCode,
-    groupCodeOptions,
-    addNewEffectRow,
-    saveAllCharEffects,    
-    filteredEffectCodes,
-    filteredHeroIds,
-    displayedEffects,
-    effectGroupedList,
-    filteredEffectGroupedList,
-    debuffGroupedList,
-    filteredDebuffGroupedList,
-    createFullHeroCard,
-    handleGridUpdate,
-    onHeroClickAdd,
-    getFirstAvailableGridIndex,
-    getCodeName,
+    filteredBoardEffectList,
     cameraPositions,
-    teamCameraGridPositions,
     selectedHeroDetail,
+    isLoadingHeroDetail,
     handleHeroSelect,
-    getBuffsByCategory,
-    BASE_URL,
-    maxTeamMembers,
-    gridRows,
-    gridCols
+    getBuffsByCategory
   };
 }

@@ -938,60 +938,64 @@ app.get('/api/chars/all-pool', async (req, res) => {
 app.get('/api/chars/buff-pool', async (req, res) => {
   try {
     const query = `
-      SELECT 
-        e.effect_code,
-        x.code_name AS effect_code_name,
-        x.code_name_short effect_code_name_short,
-        y.effect_type,
-        e.rank_score,
-        c.master_id, 
-        c.char_id as id, 
-        c.nickname as name, 
+      SELECT
+        ce.effect_code,
+        COALESCE(cd.code_name, ce.effect_code) AS effect_code_name,
+        COALESCE(cd.code_name_short, cd.code_name, ce.effect_code) AS effect_code_name_short,
+        gc.effect_type,
+        c.master_id,
+        ce.char_id AS id,
+        COALESCE(NULLIF(TRIM(c.nickname), ''), c.char_name, '무명') AS name,
         c.is_awk_yn,
-        COALESCE(b.effect_value::text, '') || COALESCE(b.value_unit, '') AS effect_value
-      FROM skia_char_effect e
-      INNER JOIN skia_char c ON e.char_id = c.char_id
-      LEFT JOIN skia_char_buff b ON c.master_id = b.master_id AND e.effect_code = b.effect_code
-      LEFT JOIN skia_code x ON e.effect_code = x.code_id
-      LEFT JOIN skia_group_code y ON y.code_group  = x.code_group
-      ORDER BY x.sort_order, e.rank_score
+        c.char_color AS color,
+        ce.rank_score,
+        ce.effect_value,
+        ce.skill_code
+      FROM public.skia_char_effect ce
+      INNER JOIN public.skia_char c
+        ON UPPER(TRIM(ce.char_id)) = UPPER(TRIM(c.char_id))
+      LEFT JOIN public.skia_code cd
+        ON UPPER(TRIM(ce.effect_code)) = UPPER(TRIM(cd.code_id))
+      LEFT JOIN public.skia_group_code gc
+        ON cd.code_group = gc.code_group
+      ORDER BY cd.sort_order ASC NULLS LAST, ce.effect_code ASC, ce.rank_score ASC
     `;
     const result = await pool.query(query);
 
-    // 💡 중요도 순서가 섞이지 않게 Array(배열) 구조로 순서를 고정하여 응답을 만듭니다.
     const orderedGroups = [];
     const groupMap = new Map();
 
     result.rows.forEach(row => {
+      const effectCode = row.effect_code ? row.effect_code.trim().toUpperCase() : '';
       const effectName = row.effect_code_name ? row.effect_code_name.trim() : '미분류 효과';
-      const effectNameShort = row.effect_code_name_short ? row.effect_code_name_short.trim() : '미분류 효과';
-      
-      // 1. 버프 그룹 생성 (DB의 ORDER BY 순서대로 순차 등록되어 순서 보장됨)
-      if (!groupMap.has(effectName)) {
+      const effectNameShort = row.effect_code_name_short ? row.effect_code_name_short.trim() : effectName;
+      const groupKey = effectCode || effectName;
+
+      if (!groupMap.has(groupKey)) {
         const groupObj = {
           effectName: effectName,
           effectNameShort: effectNameShort,
           effectType: row.effect_type,
-          effectCode: row.effect_code,
+          effectCode: effectCode,
           rankScore: row.rank_score,
           heroes: []
         };
-        groupMap.set(effectName, groupObj);
+        groupMap.set(groupKey, groupObj);
         orderedGroups.push(groupObj);
       }
 
-      const currentGroup = groupMap.get(effectName);
-      const rawId = row.id || '';
+      const currentGroup = groupMap.get(groupKey);
+      const rawId = row.id ? String(row.id).trim() : '';
       if (!rawId) return;
 
-      // 2. 그룹 내부 영웅 중복 방지 및 최소한의 데이터 바인딩
       if (!currentGroup.heroes.some(h => h.id.toUpperCase() === rawId.toUpperCase())) {
         currentGroup.heroes.push({
           master_id: row.master_id,
           id: rawId,
           name: row.name || '무명',
           is_awk_yn: row.is_awk_yn,
-          effect_value: row.effect_value || ''
+          color: row.color || getRandomColorById(rawId.toUpperCase()),
+          effect_value: row.effect_value ?? ''
         });
       }
     });
@@ -1002,7 +1006,6 @@ app.get('/api/chars/buff-pool', async (req, res) => {
     res.status(500).json({ error: '버프 데이터를 불러오는 중 에러가 발생했습니다.' });
   }
 });
-
 // 💡 [추가] 특정 카테고리(예: nightmare, 일반결투장 등)에 해당하는 덱 목록만 필터링하여 조회
 // 💡 특정 카테고리(예: nightmare, 일반결투장 등)에 해당하는 덱 목록만 필터링하여 조회
 app.get('/api/decks/category/:categoryName', async (req, res) => {
@@ -1274,6 +1277,106 @@ app.get('/api/chars/recent', async (req, res) => {
   } catch (err) {
     console.error('최신 캐릭터 5종 조회 에러:', err);
     res.status(500).json({ message: '최신 캐릭터 목록 조회 중 서버 에러가 발생했습니다.' });
+  }
+});
+
+// POST /api/admin/sync-char-effects
+app.post('/api/admin/sync-char-effects', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. 자동 동기화 대상(sync_yn = 'Y') 데이터만 초기화 (수동 고정 'N' 데이터 보존)
+    await client.query(`
+      DELETE FROM public.skia_char_effect
+      WHERE sync_yn = 'Y'
+    `);
+
+    // 2. (effect_code, char_id) 당 최고 수치 대표 스킬 1건 추출 후 rank_score 자동 산정
+    const syncQuery = `
+      WITH best_char_effects AS (
+        SELECT DISTINCT ON (UPPER(TRIM(b.effect_code)), b.char_id)
+          UPPER(TRIM(b.effect_code)) AS effect_code,
+          b.char_id,
+          b.target_code,
+          b.skill_code,
+          COALESCE(NULLIF(b.max_value, 0), b.effect_value, 0) AS best_value
+        FROM public.skia_char_buff b
+        INNER JOIN public.skia_char c
+          ON b.char_id = c.char_id
+        WHERE b.effect_code IS NOT NULL
+          AND (
+            b.target_code = 'TGT02'
+            OR UPPER(TRIM(b.effect_code)) LIKE 'SDB%'
+            OR UPPER(TRIM(b.effect_code)) LIKE 'DOT%'
+            OR UPPER(TRIM(b.effect_code)) LIKE 'CCC%'
+          )
+          AND (
+            UPPER(TRIM(b.effect_code)) LIKE 'STB%' OR
+            UPPER(TRIM(b.effect_code)) LIKE 'DGB%' OR
+            UPPER(TRIM(b.effect_code)) LIKE 'DOT%' OR
+            UPPER(TRIM(b.effect_code)) LIKE 'SDB%' OR
+            UPPER(TRIM(b.effect_code)) LIKE 'CCC%' OR
+            UPPER(TRIM(b.effect_code)) LIKE 'SYG%' OR
+            UPPER(TRIM(b.effect_code)) LIKE 'UTC%'
+          )
+        ORDER BY
+          UPPER(TRIM(b.effect_code)),
+          b.char_id,
+          COALESCE(NULLIF(b.max_value, 0), b.effect_value, 0) DESC,
+          b.skill_code DESC
+      ),
+      ranked_effects AS (
+        SELECT
+          effect_code,
+          char_id,
+          target_code,
+          skill_code,
+          best_value,
+          ROW_NUMBER() OVER (
+            PARTITION BY effect_code
+            ORDER BY best_value DESC, char_id ASC
+          ) AS auto_rank
+        FROM best_char_effects
+      )
+      INSERT INTO public.skia_char_effect (
+        effect_code,
+        char_id,
+        rank_score,
+        target_code,
+        skill_code,
+        effect_value,
+        sync_yn
+      )
+      SELECT
+        effect_code,
+        char_id,
+        auto_rank,
+        target_code,
+        skill_code,
+        best_value,
+        'Y'
+      FROM ranked_effects
+      ON CONFLICT (effect_code, char_id) DO NOTHING
+    `;
+
+    const result = await client.query(syncQuery);
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      insertedCount: result.rowCount,
+      message: `총 ${result.rowCount}건의 영웅 효과 데이터가 동기화되었습니다.`
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('skia_char_effect 동기화 실패:', error);
+    res.status(500).json({
+      success: false,
+      message: '데이터 동기화 중 오류가 발생했습니다.'
+    });
+  } finally {
+    client.release();
   }
 });
 

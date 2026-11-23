@@ -40,63 +40,45 @@
     bossBadgeCelestial: '천상'
   },
 
-  // 4. 우측 현황판 구역
+  // 4. 해시태그 분류 공통 (영웅보관함 7종 + 현황판 8종)
+  effectTagTabs: [
+    { key: 'CRIT_RES', label: '#치확&저항' },
+    { key: 'DAMAGE', label: '#피해' },
+    { key: 'ETC', label: '#이외' },
+    { key: 'DMG_DEALT', label: '#피해량' },
+    { key: 'CC_SYNERGY', label: '#CC&시너지' },
+    { key: 'DEBUFF', label: '#디버프' },
+    { key: 'UTIL', label: '#유틸' }
+  ],
+
+  // 5. 하단 현황판 구역
   statusBoard: {
-    typeBuff: '⚔️ 아군 버프',
-    typeDebuff: '💀 적군 디버프',
-    buffTitle: '⚔️ 아군 버프 현황',
-    debuffTitle: '💀 적군 디버프 현황',
-    buffBadge: 'ACTIVE',
-    debuffBadge: 'DEBUFFS',
-    emptyBuff: '활성화된 버프가 없습니다.',
-    emptyDebuff: '적용된 디버프가 없습니다.'
+    boardTabs: [
+      { key: 'CRIT_RES', label: '#치확&저항' },
+      { key: 'DAMAGE', label: '#피해' },
+      { key: 'ETC', label: '#이외' },
+      { key: 'DMG_DEALT', label: '#피해량' },
+      { key: 'CC_SYNERGY', label: '#CC&시너지' },
+      { key: 'DEBUFF', label: '#디버프' },
+      { key: 'UTIL', label: '#유틸' },
+      { key: 'INFO', label: '#캐릭터' }
+    ],
+    emptyEffect: '활성화된 효과가 없습니다.'
   },
 
-  // 5. 하단 영웅 보관함 구역
+  // 6. 우측 영웅 보관함 구역
   heroPool: {
     title: '👑 영웅 보관함',
     dragTip: '드래그하여 배치',
-    toggleExpand: '▲ 펼치기',
-    toggleCollapse: '▼ 접기',
     searchPlaceholder: '🔍 영웅 이름 검색...',
-    manageBtn: '추천 영웅 관리',
-    inTeamBadge: 'IN TEAM',
-    noBuffHero: '해당하는 버프 영웅이 없습니다.',
-    
-    subFilters: [
-      { key: "ALL", label: "전체" },
-      { key: "BUFF", label: "버프" },
-      { key: "DEBUFF", label: "디버프" },
-      { key: "CCC", label: "군중제어" }, // 추가된 항목
-      { key: "UTC", label: "유틸" }      // 추가된 항목
-    ],
+    inTeamBadge: 'IN',
+    noBuffHero: '해당하는 영웅이 없습니다.',
 
     gradeFilters: [
-      { key: 'ALL', label: '전체' },
-      { key: 'HIGH_LOAD', label: '하이로드' },
       { key: 'LEGEND+', label: '레전드+' },
+      { key: 'HIGH_LOAD', label: '하이로드' },
       { key: 'LEGEND', label: '레전드' },
-      { key: 'BUFF_LIST', label: '버프리스트' }
+      { key: 'ALL', label: '전체' }
     ]
-  },
-
-  // 6. 추천 영웅 관리 모달 창
-  modal: {
-    title: '추천 영웅 관리 리스트',
-    formTitleEdit: '추천 정보 수정',
-    formTitleNew: '새 추천 영웅 등록',
-    effectLabel: '효과검색',
-    effectPlaceholder: '예: 치명타, 공격력 등 입력',
-    heroLabel: '영웅검색',
-    heroPlaceholder: '영웅 이름 입력',
-    rankLabel: '순위',
-    rankPlaceholder: '예: 1 (1순위)',
-    btnCancel: '수정 취소',
-    btnSubmitNew: '저장하기',
-    btnSubmitEdit: '수정 완료',
-    unregisteredHero: '미등록 영웅',
-    noData: '등록된 데이터가 없습니다.',
-    
-    tableHeaders: ['번호', '효과 코드', '효과명', '영웅', '순위 스코어', '관리']
   }
 };

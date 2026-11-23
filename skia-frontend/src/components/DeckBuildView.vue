@@ -25,7 +25,7 @@
         
         <div class="input-group">
           <label>{{ texts.controls.skillClassLabel }}</label>
-          <select v-model="selectedSkillClass" class="cyber-select">
+          <select v-model="selectedSkillClass" @change="calculateAllRanges" class="cyber-select">
             <option v-for="opt in texts.controls.skillOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }}
             </option>
@@ -34,15 +34,15 @@
       </div>
     </div>
 
-    <!-- Main workspace -->
+    <!-- Main workspace: 좌측 전장 + 우측 영웅 보관함 -->
     <div class="main-workspace-zone">
       <!-- ================= [1] DESCENT MODE (강림) ================= -->
       <div v-if="boardCategory === 'descent'" class="workspace-column unified-battlefield-column-descent">
         <div class="battle-pair-row">
-          <div class="team-arena-section">
+          <div class="team-arena-section" :class="{ 'active-team-focus': activeStatusTab === 1 }" @click="selectStatusTeam(1)">
             <div class="team-title-banner alliance">
-              <h3>🛡️ TEAM 1 <span class="char-count">({{ getTeamCharCount(1) }}/48)</span></h3>
-              <div style="display: flex; gap: 4px;">
+              <h3>🛡️ 팀 1 <span class="char-count">({{ getTeamCharCount(1) }}/48)</span></h3>
+              <div style="display: flex; gap: 4px;" @click.stop>
                 <button class="copy-team-btn" @click="copyTeamDeckCode(1)">{{ texts.arena.teamCopyBtn }}</button>
                 <button class="clear-team-btn" @click="clearTeam(1)">{{ texts.arena.teamClearBtn }}</button>
               </div>
@@ -57,7 +57,6 @@
                 <g v-for="range in computedRanges[1]" :key="'svg-t1-' + range.instanceId">
                   <line :x1="range.startX" :y1="range.startY" :x2="range.endX" :y2="range.endY" :stroke="range.color" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.7" />
                   <circle :cx="range.endX" :cy="range.endY" r="4.5" :fill="range.color" />
-                  
                   <path v-if="(range.shape === '부채꼴' || range.shape === '반원') && range.pathD" :d="range.pathD" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                   <circle v-else-if="range.shape === '원' && range.radius > 0" :cx="range.drawX" :cy="range.drawY" :r="range.radius" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
                   <rect v-else-if="range.shape === '사각형' && range.width > 0" :x="range.drawX" :y="range.drawY - (range.height / 2)" :width="range.width" :height="range.height" :fill="range.color" fill-opacity="0.22" :stroke="range.color" stroke-width="1.5" />
@@ -65,7 +64,7 @@
               </svg>
      
               <div class="team-box">
-                <div v-for="char in activeChars(1)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, 1)" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, 1)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars(1)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, 1)" @drag="onDragging" @click.stop="handleHeroSelect(char, 1)" @contextmenu.prevent="removeHero(char, 1)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -74,7 +73,7 @@
             </div>
           </div>
 
-          <div class="boss-arena-section">
+          <div class="boss-arena-section" @click="selectStatusTeam(1)">
             <div class="boss-zone-header">              
               <span class="boss-badge">{{ texts.arena.bossBadgeNightmare }}</span>
             </div>
@@ -103,7 +102,7 @@
         </div>
 
         <div class="battle-pair-row reverse-layout">
-          <div class="boss-arena-section reverse-boss">
+          <div class="boss-arena-section reverse-boss" @click="selectStatusTeam('1_reverse')">
             <div class="boss-zone-header">
               <span class="boss-badge reverse-badge">{{ texts.arena.bossBadgeNightmare }}</span>
             </div>
@@ -120,11 +119,11 @@
             </div>
           </div>
 
-          <div class="team-arena-section reverse-team">
+          <div class="team-arena-section reverse-team" :class="{ 'active-team-focus': activeStatusTab === '1_reverse' }" @click="selectStatusTeam('1_reverse')">
             <div class="team-title-banner alliance reverse-banner">
-              <h3>🛡️ TEAM 1_r <span class="char-count">({{ getTeamCharCount('1_reverse') }}/48)</span></h3>
-              <div style="display: flex; gap: 4px;">
-                <button class="copy-team-btn" @click="copyToReverseTeam('1_reverse')">{{ texts.arena.teamCopyBtn }}</button>
+              <h3>🛡️ 팀 1_r <span class="char-count">({{ getTeamCharCount('1_reverse') }}/48)</span></h3>
+              <div style="display: flex; gap: 4px;" @click.stop>
+                <button class="copy-team-btn" @click="copyToReverseTeam(1)">{{ texts.arena.teamCopyBtn }}</button>
                 <button class="clear-team-btn" @click="clearTeam('1_reverse')">{{ texts.arena.teamClearBtn }}</button>
               </div>
             </div>
@@ -134,7 +133,7 @@
                 <div v-for="i in 48" :key="'trev-cell-' + i" class="grid-cell alliance-cell"></div>
               </div>
               <div class="team-box">
-                <div v-for="char in activeChars('1_reverse')" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, '1_reverse')" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, '1_reverse')" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars('1_reverse')" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, '1_reverse')" @drag="onDragging" @click.stop="handleHeroSelect(char, '1_reverse')" @contextmenu.prevent="removeHero(char, '1_reverse')" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -148,10 +147,10 @@
       <!-- ================= [2] CELESTIAL MODE (천결) ================= -->
       <div v-else-if="boardCategory === 'celestial'" class="workspace-column unified-battlefield-column">
         <div v-for="teamNo in [1, 2, 3]" :key="'battle-pair-' + teamNo" class="battle-pair-row">
-          <div class="team-arena-section">
+          <div class="team-arena-section" :class="{ 'active-team-focus': activeStatusTab === teamNo }" @click="selectStatusTeam(teamNo)">
             <div class="team-title-banner alliance">
-              <h3>🛡️ TEAM {{ teamNo }} <span class="char-count">({{ getTeamCharCount(teamNo) }}/15)</span></h3>
-              <div style="display: flex; gap: 4px;">
+              <h3>🛡️ 팀 {{ teamNo }} <span class="char-count">({{ getTeamCharCount(teamNo) }}/15)</span></h3>
+              <div style="display: flex; gap: 4px;" @click.stop>
                 <button class="copy-team-btn" @click="copyTeamDeckCode(teamNo)">{{ texts.arena.teamCopyBtn }}</button>
                 <button class="clear-team-btn" @click="clearTeam(teamNo)">{{ texts.arena.teamClearBtn }}</button>
               </div>
@@ -172,7 +171,7 @@
                 </g>
               </svg>
               <div class="team-box">
-                <div v-for="char in activeChars(teamNo)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, teamNo)" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, teamNo)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars(teamNo)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, teamNo)" @drag="onDragging" @click.stop="handleHeroSelect(char, teamNo)" @contextmenu.prevent="removeHero(char, teamNo)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -181,7 +180,7 @@
             </div>
           </div>
 
-          <div class="boss-arena-section">
+          <div class="boss-arena-section" @click="selectStatusTeam(teamNo)">
             <div class="boss-zone-header">
               <span class="boss-badge">{{ texts.arena.bossBadgeCelestial }}</span>
             </div>
@@ -212,10 +211,10 @@
       <!-- ================= [3] NIGHTMARE MODE (나이트메어/기본) ================= -->
       <div v-else class="workspace-column unified-battlefield-column">
         <div v-for="teamNo in [1, 2, 3]" :key="'battle-pair-' + teamNo" class="battle-pair-row">
-          <div class="team-arena-section">
+          <div class="team-arena-section" :class="{ 'active-team-focus': activeStatusTab === teamNo }" @click="selectStatusTeam(teamNo)">
             <div class="team-title-banner alliance">
-              <h3>🛡️ TEAM {{ teamNo }} <span class="char-count">({{ getTeamCharCount(teamNo) }}/15)</span></h3>
-              <div style="display: flex; gap: 4px;">
+              <h3>🛡️ 팀 {{ teamNo }} <span class="char-count">({{ getTeamCharCount(teamNo) }}/15)</span></h3>
+              <div style="display: flex; gap: 4px;" @click.stop>
                 <button class="copy-team-btn" @click="copyTeamDeckCode(teamNo)">{{ texts.arena.teamCopyBtn }}</button>
                 <button class="clear-team-btn" @click="clearTeam(teamNo)">{{ texts.arena.teamClearBtn }}</button>
               </div>
@@ -262,7 +261,7 @@
               </div>
 
               <div class="team-box">
-                <div v-for="char in activeChars(teamNo)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, teamNo)" @drag="onDragging" @click.stop="handleHeroSelect(char)" @contextmenu.prevent="removeHero(char, teamNo)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
+                <div v-for="char in activeChars(teamNo)" :key="char.instanceId" class="char-card" :class="{ 'selected-hero': selectedHeroName === char.name }" :id="'char-' + char.instanceId" draggable="true" @dragstart="onDragStart($event, char, teamNo)" @drag="onDragging" @click.stop="handleHeroSelect(char, teamNo)" @contextmenu.prevent="removeHero(char, teamNo)" :title="`${char.name}`" :style="{ top: char.position.top + 'px', left: char.position.left + 'px', borderColor: char.color || '#3b82f6' }">
                   <div class="avatar-box">
                     <img :src="getHeroImage(char.id)" @error="handleImageError" :alt="char.name" class="char-avatar" />
                   </div>
@@ -271,7 +270,7 @@
             </div>
           </div>
 
-          <div class="boss-arena-section">
+          <div class="boss-arena-section" @click="selectStatusTeam(teamNo)">
             <div class="boss-zone-header">
               <span class="boss-badge">{{ texts.arena.bossBadgeNightmare }}</span>
             </div>
@@ -300,388 +299,80 @@
         </div>
       </div>
 
-      <!-- ➡️ (오른쪽 세로) 탭 및 현황판 -->
-      <div class="workspace-column status-column">
-        <div class="status-board-container-vertical">
-          <div class="status-tab-menu">
-            <button v-for="tab in statusTabs" :key="tab.val" :class="['status-tab-btn', { active: activeStatusTab === tab.val }]" @click="activeStatusTab = tab.val">
-              {{ tab.label }}
-            </button>
-          </div>
-
-          <!-- 버프 / 디버프 / 정보 3선 선택 탭 -->
-          <div class="board-type-tab-menu" style="display: flex; gap: 6px;">
-            <button :class="['type-tab-btn', { active: activeBoardType === 'buff' }]" @click="activeBoardType = 'buff'">
-              {{ texts.statusBoard.typeBuff }}
-            </button>
-            <button :class="['type-tab-btn', { active: activeBoardType === 'debuff' }]" @click="activeBoardType = 'debuff'">
-              {{ texts.statusBoard.typeDebuff }}
-            </button>
-            <button :class="['type-tab-btn', { active: activeBoardType === 'info' }]" @click="activeBoardType = 'info'">
-              캐릭터
-            </button>
-          </div>
-
-          <!-- [1] 아군 버프 현황판 -->
-          <div v-if="activeBoardType === 'buff'" class="buff-section-wrapper compact-section">
-            <div class="section-title-bar">
-              <h3>{{ texts.statusBoard.buffTitle }} <span class="selected-team-text">({{ getStatusTabLabel }})</span></h3>
-              <span class="active-badge">{{ texts.statusBoard.buffBadge }}</span>
-            </div>
-            <div class="vertical-scroll-board">
-              <div class="grid-container" v-if="filteredEffectGroupedList.length > 0">
-                <div v-for="item in filteredEffectGroupedList" :key="item.effectCode" class="grid-item">
-                  <div class="item-header" :title="item.effectName">{{ item.effectNameShort }}</div>
-                  <div class="item-body">
-                    <template v-if="item.sources.length > 0">
-                      <div v-for="(src, idx) in item.sources" :key="src.charName + '-' + src.skillDesc + '-' + src.teamNo + '-' + idx" class="source-row">
-                        <div class="char-info">
-                            <span class="char-name" :class="{ 'highlight-yellow': selectedHeroName === src.charName }">
-                              {{ src.charName }} 
-                              <span class="skill-desc">[{{ src.skillDesc }}]</span>
-                            </span>
-                        </div>
-                        <span class="effect-val-text">{{ src.charValue }}</span>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div class="empty-source-text">-</div>
-                    </template>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="empty-status-alert compact-alert">{{ texts.statusBoard.emptyBuff }}</div>
-            </div>
-          </div>
-
-          <!-- [2] 적군 디버프 현황판 -->
-          <div v-else-if="activeBoardType === 'debuff'" class="debuff-section-wrapper compact-section">
-            <div class="section-title-bar">
-              <h3>{{ texts.statusBoard.debuffTitle }} <span class="selected-team-text">({{ getStatusTabLabel }})</span></h3>
-              <span class="deactive-badge">{{ texts.statusBoard.debuffBadge }}</span>
-            </div>
-            <div class="vertical-scroll-board">
-              <div class="grid-container" v-if="filteredDebuffGroupedList.length > 0">
-                <div v-for="item in filteredDebuffGroupedList" :key="item.effectCode" class="grid-item">
-                  <div class="item-header debuff-header" :title="item.effectName">{{ item.effectNameShort }}</div>
-                  <div class="item-body">
-                    <template v-if="item.sources.length > 0">
-                      <div v-for="(src, idx) in item.sources" :key="src.charName + '-' + src.skillDesc + '-' + src.teamNo + '-' + idx" class="source-row">
-                        <div class="char-info">
-                          <span class="char-name" :class="{ 'highlight-yellow': selectedHeroName === src.charName }">
-                            {{ src.charName }} 
-                            <span class="skill-desc">[{{ src.skillDesc }}]</span>
-                          </span>
-                        </div>
-                        <span class="effect-val-text">{{ src.charValue }}</span>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div class="empty-source-text">-</div>
-                    </template>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="empty-status-alert compact-alert">{{ texts.statusBoard.emptyDebuff }}</div>
-            </div>
-          </div>
-
-          <!-- [3] 캐릭터 상세 정보 현황판 -->
-          <div v-else-if="activeBoardType === 'info'" class="info-section-wrapper compact-section">
-            <div class="section-title-bar">
-              <h3>캐릭터 버프 상세 정보</h3>
-              <span class="info-badge">INFO</span>
-            </div>
-            
-            <div class="vertical-scroll-board p-3">
-              <div v-if="selectedHeroDetail" class="hero-detail-container">
-                
-                <!-- 상단 프로필 요약 헤더 -->
-                <div class="profile-header-card">
-                  <div class="profile-avatar-box">
-                    <img 
-                      :src="getHeroImage(selectedHeroDetail.id)" 
-                      @error="handleImageError" 
-                      class="hero-detail-avatar" 
-                    />
-                    <div class="hero-header-text">
-                      <h4 class="hero-detail-title">{{ selectedHeroDetail.name }}</h4>
-                      <span class="hero-detail-code">ID: {{ selectedHeroDetail.id }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 기본 스킬/공격 정보 카드 -->
-                <div class="effect-group-box info-group">
-                  <div class="buff-card-list">
-                    
-                    <!-- 1. 일반공격 -->
-                    <div class="buff-item-card card-info">
-                      <div class="buff-item-left">
-                        <span class="skill-label">일반공격</span>
-                        <div class="skill-details-wrapper">
-                          <div class="info-row-primary">
-                            <span class="buff-name text-truncate">
-                              {{ selectedHeroDetail.normal_damage_name || '일반공격' }}
-                            </span>
-                            <span class="buff-val text-yellow">
-                              {{ selectedHeroDetail.normal_damage }}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 2. 치명타공격 (회색 박스 배지 형태) -->
-                    <div class="buff-item-card card-info">
-                      <div class="buff-item-left">
-                        <span class="skill-label label-crit">치명타공격</span>
-                        <div class="skill-details-wrapper">
-                          <div class="info-row-primary">
-                            <span class="buff-name text-truncate">
-                              {{ selectedHeroDetail.critSdc02_damage_name || '치명타피해량' }}
-                            </span>
-                            
-                            <!-- 노란색 치명타 기본 수치 -->
-                            <span class="buff-val text-yellow">
-                              {{ selectedHeroDetail.critSdc02_value }}
-                            </span>
-                            
-                            <!-- 🌟 치명타 전용 회색 박스 MAX 배지 -->
-                            <span 
-                              v-if="selectedHeroDetail.critSdc02_damage && selectedHeroDetail.critSdc02_damage !== '0%' && selectedHeroDetail.critSdc02_damage !== '-'" 
-                              class="buff-max-badge"
-                            >
-                              MAX {{ selectedHeroDetail.critSdc02_damage }}
-                            </span>
-                            
-                            <span class="slash-divider">/</span>
-                            <span class="buff-sub-val text-blue">사거리: {{ selectedHeroDetail.critSdc02_range }}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 3. 액티브스킬 (슬래시 + 빨간색 텍스트 형태) -->
-                    <div class="buff-item-card card-info card-active-skill">
-                      <div class="buff-item-left">
-                        <span class="skill-label label-active">액티브스킬</span>
-                        <div class="skill-details-wrapper">
-                          
-                          <div class="info-row-primary">
-                            <span class="buff-name text-truncate">{{ selectedHeroDetail.activeSdc01_skill_name || '공격력피해량' }}</span>
-                            
-                            <!-- 빨간색 액티브 기본 수치 -->
-                            <span class="buff-val text-red-main">{{ selectedHeroDetail.activeSdc01_effect_value }}</span>
-                            
-                            <!-- 🌟 액티브 전용 빨간색 MAX 텍스트 -->
-                            <template v-if="selectedHeroDetail.activeSdc01_damage && selectedHeroDetail.activeSdc01_damage !== '-' && selectedHeroDetail.activeSdc01_damage !== selectedHeroDetail.activeSdc01_effect_value">
-                              <span class="buff-val buff-max-badge">
-                                MAX {{ selectedHeroDetail.activeSdc01_damage }}
-                              </span>
-                            </template>
-                          </div>
-
-                          <div class="info-row-secondary">
-                            <span class="meta-tag">{{ selectedHeroDetail.activeSdc01_shape || '-' }}</span>
-                            <span class="meta-tag area-tag">{{ selectedHeroDetail.activeSdc01_area || '-' }}</span>
-                            
-                            <div class="meta-stats">
-                              <span class="stat-item">
-                                <span class="stat-label">사거리:</span>
-                                <span class="stat-val text-yellow">{{ selectedHeroDetail.activeSdc01_range }}</span>
-                              </span>
-                              <span class="stat-divider">|</span>
-                              <span class="stat-item">
-                                <span class="stat-label">쿨:</span>
-                                <span class="stat-val text-yellow">{{ selectedHeroDetail.activeSdc01_cooldown }}</span>
-                              </span>
-                            </div>
-                          </div>
-
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-
-                <!-- 스킬 및 버프/디버프 상세 목록 영역 -->
-                <div class="hero-buff-list-box mt-3">                
-                  <div v-if="selectedHeroDetail.buffs && selectedHeroDetail.buffs.length > 0" class="buff-category-wrapper">
-                    
-                    <!-- 1️⃣ 자신 버프 영역 -->
-                    <div v-if="getBuffsByCategory('SELF_BUFF').length > 0" class="effect-group-box self-group">
-                      <div class="group-header-label text-self">
-                        <span>👤 자신 버프</span>
-                      </div>
-                      <div class="buff-card-list">
-                        <div v-for="b in getBuffsByCategory('SELF_BUFF')" :key="b.buff_seq" class="buff-item-card card-self">
-                          <div class="buff-item-left">
-                            <!-- C: 치명타, A: 액티브, N: 일반 -->
-                            <span 
-                              class="skill-type-badge" 
-                              :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'"
-                            >
-                              {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
-                            </span>
-
-                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                            <span class="buff-val">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
-                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
-                            </span>
-                          </div>
-                          <div class="buff-item-right">
-                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 2️⃣ 아군 버프 영역 -->
-                    <div v-if="getBuffsByCategory('TEAM_BUFF').length > 0" class="effect-group-box team-group">
-                      <div class="group-header-label text-team">
-                        <span>🛡️ 아군 버프</span>
-                      </div>
-                      <div class="buff-card-list">
-                        <div v-for="b in getBuffsByCategory('TEAM_BUFF')" :key="b.buff_seq" class="buff-item-card card-team">
-                          <div class="buff-item-left">
-                            <span 
-                              class="skill-type-badge" 
-                              :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'"
-                            >
-                              {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
-                            </span>
-
-                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                            <span class="buff-val text-green">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
-                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
-                            </span>
-                          </div>
-                          <div class="buff-item-right">
-                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 3️⃣ 적군 디버프 영역 -->
-                    <div v-if="getBuffsByCategory('DEBUFF').length > 0" class="effect-group-box debuff-group">
-                      <div class="group-header-label text-debuff">
-                        <span>⚔️ 적군 디버프</span>
-                      </div>
-                      <div class="buff-card-list">
-                        <div v-for="b in getBuffsByCategory('DEBUFF')" :key="b.buff_seq" class="buff-item-card card-debuff">
-                          <div class="buff-item-left">
-                            <span 
-                              class="skill-type-badge" 
-                              :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'"
-                            >
-                              {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
-                            </span>
-
-                            <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                            <span class="buff-val text-red">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                            <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">
-                              MAX: {{ b.max_value }}{{ b.unit || '%' }}
-                            </span>
-                          </div>
-                          <div class="buff-item-right">
-                            <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
-                            <span class="divider">|</span>
-                            <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                  <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
-                </div>
-
-              </div>
-
-              <!-- 로딩 및 미선택 안내 -->
-              <div v-else class="empty-status-alert compact-alert">
-                {{ isLoadingHeroDetail ? '캐릭터 정보를 불러오는 중입니다...' : '전장에서 캐릭터를 선택하면 상세 정보가 표시됩니다.' }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- 최하단 영웅 보관함 -->
-    <div class="bottom-hero-pool-zone" :class="{ collapsed: isPoolCollapsed }">
-      <div class="pool-toggle-header" @click="isPoolCollapsed = !isPoolCollapsed">
-        <div class="left-controls">
-          <h3>{{ texts.heroPool.title }} <span class="toggle-icon">{{ isPoolCollapsed ? texts.heroPool.toggleExpand : texts.heroPool.toggleCollapse }}</span></h3>
-          <p class="pool-tip">{{ texts.heroPool.dragTip }}</p>
-        </div>
-
-        <div class="pool-filter-actions" @click.stop>
-          <div v-if="heroGradeFilter === 'BUFF_LIST'" class="buff-sub-filter-bar">
-            <button 
-              v-for="sub in texts.heroPool.subFilters" 
-              :key="sub.key"
-              :class="['sub-filter-btn', sub.key === 'BUFF' ? 'buff-btn' : sub.key === 'DEBUFF' ? 'debuff-btn' : '', { active: buffSubFilter === sub.key }]" 
-              @click="buffSubFilter = sub.key"
+      <!-- ➡️ (오른쪽 영역) 영웅 보관함 -->
+      <div class="workspace-column right-pool-column">
+        <div class="right-pool-header">
+          <div class="pool-title-row">
+            <h3>{{ texts.heroPool.title }}</h3>
+            <span class="pool-tip">{{ texts.heroPool.dragTip }}</span>
+            <button
+              v-if="isAdmin"
+              class="sync-effect-btn"
+              :disabled="isSyncingEffects"
+              @click="syncCharEffects"
+              title="skia_char_buff 테이블에서 버프/디버프 목록을 일괄 가져옵니다"
             >
-              {{ sub.label }}
+              {{ isSyncingEffects ? '동기화 중...' : '🔄 효과 동기화' }}
             </button>
+            <input v-model="heroSearchKeyword" type="text" :placeholder="texts.heroPool.searchPlaceholder" class="hero-search-input" />
           </div>
 
+          <!-- 1) 등급 버튼: 전체 / 하이로드 / 레전드+ / 레전드 -->
           <div class="filter-tab-bar">
-            <button v-for="grade in texts.heroPool.gradeFilters" :key="grade.key" :class="['filter-tab-btn', { active: heroGradeFilter === grade.key }]" @click="heroGradeFilter = grade.key">
+            <button
+              v-for="grade in texts.heroPool.gradeFilters"
+              :key="grade.key"
+              :class="['filter-tab-btn', { active: heroPoolFilter === grade.key }]"
+              @click="heroPoolFilter = grade.key"
+            >
               {{ grade.label }}
             </button>
           </div>
-          <input v-model="heroSearchKeyword" type="text" :placeholder="texts.heroPool.searchPlaceholder" class="hero-search-input" />
-          <button class="manage-buff-btn" @click="openBuffModal">{{ texts.heroPool.manageBtn }}</button>
-        </div>
-      </div>
 
-      <div class="pool-horizontal-scroll-container" v-show="!isPoolCollapsed">
-        <div v-if="heroGradeFilter !== 'BUFF_LIST'" class="hero-three-row-grid">
-          <div 
-            v-for="hero in filteredHeroPool" 
-            :key="hero.id" 
-            class="pool-hero-item" 
-            :class="{ 'in-team-disabled': isHeroPlaced(hero.id) }"
-            :draggable="!isHeroPlaced(hero.id)" 
-            @dragstart="onDragStartFromPool($event, hero)" 
-            :style="{ borderColor: isHeroPlaced(hero.id) ? '#475569' : (hero.color || '#475569') }"
-          >
-            <div class="hero-avatar-wrapper">
-              <img :src="getHeroImage(hero.id)" @error="handleImageError" :alt="hero.name" class="char-avatar" />
-              <span v-if="isHeroPlaced(hero.id)" class="in-team-badge">{{ texts.heroPool.inTeamBadge }}</span>
-            </div>
-            <span class="hero-mini-name">{{ hero.name }}</span>
+          <!-- 2) 해시태그 7종: #치확&저항 #피해 #이외 #피해량 #CC&시너지 #디버프 #유틸 -->
+          <div class="filter-tab-bar hashtag-tab-bar">
+            <button
+              v-for="tag in texts.effectTagTabs"
+              :key="tag.key"
+              :class="['filter-tab-btn tag-filter-btn', { active: heroPoolFilter === tag.key }]"
+              @click="heroPoolFilter = tag.key"
+            >
+              {{ tag.label }}
+            </button>
           </div>
         </div>
-        <div v-else class="buff-grouped-three-row-container">
-          <div v-for="group in groupedBuffHeroes" :key="group.effectCode || group.effectName" class="buff-group-box">
-            <div class="buff-group-box-title" :class="group.effectType === '디버프' ? 'text-debuff' : 'text-buff'">
-              {{ group.effectNameShort }}
+
+        <!-- 오른쪽 세로 스크롤 영웅 리스트 -->
+        <div class="right-pool-scroll-container">
+          <!-- 등급 모드 (전체 / 하이로드 / 레전드+ / 레전드) -->
+          <div v-if="!isEffectTagMode" class="right-hero-grid">
+            <div 
+              v-for="hero in filteredHeroPool" 
+              :key="hero.id" 
+              class="pool-hero-item" 
+              :class="{ 'in-team-disabled': isHeroPlaced(hero.id) }"
+              :draggable="!isHeroPlaced(hero.id)" 
+              @dragstart="onDragStartFromPool($event, hero)" 
+              :style="{ borderColor: isHeroPlaced(hero.id) ? '#475569' : (hero.color || '#475569') }"
+            >
+              <div class="hero-avatar-wrapper">
+                <img :src="getHeroImage(hero.id)" @error="handleImageError" :alt="hero.name" class="char-avatar" />
+                <span v-if="isHeroPlaced(hero.id)" class="in-team-badge">T{{ getAssignedTeam(hero.id) || 'IN' }}</span>
+              </div>
+              <span class="hero-mini-name">{{ hero.name }}</span>
             </div>
-            <div class="buff-group-hero-grid">
+          </div>
+
+          <!-- 해시태그 모드 (#치확&저항 ~ #유틸) -->
+          <div v-else class="right-tag-grouped-container">
+            <div v-for="group in groupedTagHeroes" :key="group.effectCode || group.effectName" class="buff-group-box">
+              <div class="buff-group-box-title" :class="group.tagKey === 'DEBUFF' ? 'text-debuff' : 'text-buff'">
+                {{ group.effectNameShort }}
+              </div>
               <div 
                 v-for="hero in group.heroes" 
                 :key="hero.id" 
-                class="pool-hero-item" 
+                class="pool-hero-item has-val" 
                 :class="{ 'in-team-disabled': isHeroPlaced(hero.id) }"
                 :draggable="!isHeroPlaced(hero.id)" 
                 @dragstart="onDragStartFromPool($event, hero)" 
@@ -694,10 +385,220 @@
                   </span>
                 </div>
                 <span class="hero-mini-name">{{ hero.name }}</span>
+                <span v-if="hero.effectValue" class="hero-mini-val">{{ hero.effectValue }}</span>
+              </div>
+            </div>
+            <div v-if="groupedTagHeroes.length === 0" class="no-data-msg">{{ texts.heroPool.noBuffHero }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⬇️ (하단 영역) 실시간 현황판 (T1/T2/T3 버튼 삭제, 전장 팀 클릭 연동) -->
+    <div class="bottom-status-zone">
+      <div class="bottom-status-header">
+        <div class="status-team-indicator">
+          <span class="team-focus-badge">🛡️ {{ getStatusTabLabel }} 현황</span>
+          <span class="team-focus-hint">※ 위 전장에서 팀1 / 팀2 / 팀3 빈칸을 클릭하면 전환됩니다</span>
+        </div>
+
+        <!-- 8개 해시태그 탭: #치확&저항 #피해 #이외 #피해량 #CC&시너지 #디버프 #유틸 #캐릭터 -->
+        <div class="board-type-tab-menu">
+          <button
+            v-for="tab in texts.statusBoard.boardTabs"
+            :key="tab.key"
+            :class="['type-tab-btn', { active: activeBoardType === tab.key }]"
+            @click="activeBoardType = tab.key"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- [A] 해시태그 7종 현황판 -->
+      <div v-if="activeBoardType !== 'INFO'" class="bottom-status-body">
+        <div class="bottom-grid-container" v-if="filteredBoardEffectList.length > 0">
+          <div v-for="item in filteredBoardEffectList" :key="item.effectCode" class="grid-item">
+            <div class="item-header" :class="{ 'debuff-header': item.tagKey === 'DEBUFF' }" :title="item.effectName">
+              {{ item.effectNameShort }}
+            </div>
+            <div class="item-body">
+              <template v-if="item.sources.length > 0">
+                <div v-for="(src, idx) in item.sources" :key="src.charName + '-' + src.skillDesc + '-' + src.teamNo + '-' + idx" class="source-row">
+                  <div class="char-info">
+                    <span class="char-name" :class="{ 'highlight-yellow': selectedHeroName === src.charName }">
+                      {{ src.charName }} 
+                      <span class="skill-desc">[{{ src.skillDesc }}]</span>
+                    </span>
+                  </div>
+                  <span class="effect-val-text">{{ src.charValue }}</span>
+                </div>
+              </template>
+              <template v-else>
+                <div class="empty-source-text">-</div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-status-alert compact-alert">{{ texts.statusBoard.emptyEffect }}</div>
+      </div>
+
+      <!-- [B] #캐릭터 상세 정보 현황판 -->
+      <div v-else class="bottom-status-body p-3">
+        <div v-if="selectedHeroDetail" class="hero-detail-container">
+          <!-- 상단 프로필 요약 헤더 -->
+          <div class="profile-header-card">
+            <div class="profile-avatar-box">
+              <img :src="getHeroImage(selectedHeroDetail.id)" @error="handleImageError" class="hero-detail-avatar" />
+              <div class="hero-header-text">
+                <h4 class="hero-detail-title">{{ selectedHeroDetail.name }}</h4>
+                <span class="hero-detail-code">ID: {{ selectedHeroDetail.id }}</span>
               </div>
             </div>
           </div>
-          <div v-if="groupedBuffHeroes.length === 0" class="no-data-msg">{{ texts.heroPool.noBuffHero }}</div>
+
+          <!-- 기본 스킬/공격 정보 카드 -->
+          <div class="effect-group-box info-group">
+            <div class="buff-card-list">
+              <!-- 1. 일반공격 -->
+              <div class="buff-item-card card-info">
+                <div class="buff-item-left">
+                  <span class="skill-label">일반공격</span>
+                  <div class="skill-details-wrapper">
+                    <div class="info-row-primary">
+                      <span class="buff-name text-truncate">{{ selectedHeroDetail.normal_damage_name || '일반공격' }}</span>
+                      <span class="buff-val text-yellow">{{ selectedHeroDetail.normal_damage }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. 치명타공격 -->
+              <div class="buff-item-card card-info">
+                <div class="buff-item-left">
+                  <span class="skill-label label-crit">치명타공격</span>
+                  <div class="skill-details-wrapper">
+                    <div class="info-row-primary">
+                      <span class="buff-name text-truncate">{{ selectedHeroDetail.critSdc02_damage_name || '치명타피해량' }}</span>
+                      <span class="buff-val text-yellow">{{ selectedHeroDetail.critSdc02_value }}</span>
+                      <span v-if="selectedHeroDetail.critSdc02_damage && selectedHeroDetail.critSdc02_damage !== '0%' && selectedHeroDetail.critSdc02_damage !== '-'" class="buff-max-badge">
+                        MAX {{ selectedHeroDetail.critSdc02_damage }}
+                      </span>
+                      <span class="slash-divider">/</span>
+                      <span class="buff-sub-val text-blue">사거리: {{ selectedHeroDetail.critSdc02_range }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3. 액티브스킬 -->
+              <div class="buff-item-card card-info card-active-skill">
+                <div class="buff-item-left">
+                  <span class="skill-label label-active">액티브스킬</span>
+                  <div class="skill-details-wrapper">
+                    <div class="info-row-primary">
+                      <span class="buff-name text-truncate">{{ selectedHeroDetail.activeSdc01_skill_name || '공격력피해량' }}</span>
+                      <span class="buff-val text-red-main">{{ selectedHeroDetail.activeSdc01_effect_value }}</span>
+                      <template v-if="selectedHeroDetail.activeSdc01_damage && selectedHeroDetail.activeSdc01_damage !== '-' && selectedHeroDetail.activeSdc01_damage !== selectedHeroDetail.activeSdc01_effect_value">
+                        <span class="buff-val buff-max-badge">MAX {{ selectedHeroDetail.activeSdc01_damage }}</span>
+                      </template>
+                    </div>
+                    <div class="info-row-secondary">
+                      <span class="meta-tag">{{ selectedHeroDetail.activeSdc01_shape || '-' }}</span>
+                      <span class="meta-tag area-tag">{{ selectedHeroDetail.activeSdc01_area || '-' }}</span>
+                      <div class="meta-stats">
+                        <span class="stat-item"><span class="stat-label">사거리:</span><span class="stat-val text-yellow">{{ selectedHeroDetail.activeSdc01_range }}</span></span>
+                        <span class="stat-divider">|</span>
+                        <span class="stat-item"><span class="stat-label">쿨:</span><span class="stat-val text-yellow">{{ selectedHeroDetail.activeSdc01_cooldown }}</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 스킬 및 버프/디버프 상세 목록 영역 -->
+          <div class="hero-buff-list-box mt-3">
+            <div v-if="selectedHeroDetail.buffs && selectedHeroDetail.buffs.length > 0" class="buff-category-wrapper">
+              <!-- 자신 버프 -->
+              <div v-if="getBuffsByCategory('SELF_BUFF').length > 0" class="effect-group-box self-group">
+                <div class="group-header-label text-self"><span>👤 자신 버프</span></div>
+                <div class="buff-card-list">
+                  <div v-for="b in getBuffsByCategory('SELF_BUFF')" :key="b.buff_seq" class="buff-item-card card-self">
+                    <div class="buff-item-left">
+                      <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
+                        {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                      </span>
+                      <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                      <span class="buff-val">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                      <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">MAX: {{ b.max_value }}{{ b.unit || '%' }}</span>
+                    </div>
+                    <div class="buff-item-right">
+                      <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+                      <span class="divider">|</span>
+                      <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+                      <span class="divider">|</span>
+                      <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 아군 버프 -->
+              <div v-if="getBuffsByCategory('TEAM_BUFF').length > 0" class="effect-group-box team-group">
+                <div class="group-header-label text-team"><span>🛡️ 아군 버프</span></div>
+                <div class="buff-card-list">
+                  <div v-for="b in getBuffsByCategory('TEAM_BUFF')" :key="b.buff_seq" class="buff-item-card card-team">
+                    <div class="buff-item-left">
+                      <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
+                        {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                      </span>
+                      <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                      <span class="buff-val text-green">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                      <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">MAX: {{ b.max_value }}{{ b.unit || '%' }}</span>
+                    </div>
+                    <div class="buff-item-right">
+                      <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+                      <span class="divider">|</span>
+                      <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+                      <span class="divider">|</span>
+                      <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 적군 디버프 -->
+              <div v-if="getBuffsByCategory('DEBUFF').length > 0" class="effect-group-box debuff-group">
+                <div class="group-header-label text-debuff"><span>⚔️ 적군 디버프</span></div>
+                <div class="buff-card-list">
+                  <div v-for="b in getBuffsByCategory('DEBUFF')" :key="b.buff_seq" class="buff-item-card card-debuff">
+                    <div class="buff-item-left">
+                      <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
+                        {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                      </span>
+                      <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                      <span class="buff-val text-red">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                      <span v-if="b.max_value != null && b.max_value > 0" class="buff-max-label">MAX: {{ b.max_value }}{{ b.unit || '%' }}</span>
+                    </div>
+                    <div class="buff-item-right">
+                      <span class="sub-info">지속: {{ b.duration || '0.0' }}s</span>
+                      <span class="divider">|</span>
+                      <span class="sub-info">중첩: {{ b.max_stack || 1 }}</span>
+                      <span class="divider">|</span>
+                      <span class="sub-info">타격: {{ b.hit_count || 1 }}회</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
+          </div>
+        </div>
+
+        <div v-else class="empty-status-alert compact-alert">
+          {{ isLoadingHeroDetail ? '캐릭터 정보를 불러오는 중입니다...' : '전장에서 캐릭터를 선택하면 상세 정보가 표시됩니다.' }}
         </div>
       </div>
     </div>
@@ -716,32 +617,31 @@ const props = defineProps({
 });
 
 const configMap = {
-  nightmare: { gridRows: 5, gridCols: 5, boardCategory: 'nightmare', maxTeamMembers: 15, initialSkillClass: 'nightmare', prefetchCommonCodes: true },
+  nightmare: { gridRows: 5, gridCols: 5, boardCategory: 'nightmare', maxTeamMembers: 15, initialSkillClass: '액티브공격', prefetchCommonCodes: true },
   descent: { gridRows: 8, gridCols: 6, boardCategory: 'descent', maxTeamMembers: 48, cardWidth: 38, cardHeight: 38 },
-  celestial: { gridRows: 8, gridCols: 6, boardCategory: 'celestial', fallbackBoardCategory: 'nightmare', maxTeamMembers: 15, initialSkillClass: 'celestial', cardWidth: 36, cardHeight: 36 }
+  celestial: { gridRows: 8, gridCols: 6, boardCategory: 'celestial', fallbackBoardCategory: 'nightmare', maxTeamMembers: 15, initialSkillClass: '액티브공격', cardWidth: 36, cardHeight: 36 }
 };
 
 const cfg = configMap[props.boardCategory] || configMap.nightmare;
 
 const {
-  isPoolCollapsed,
   selectedBoardDeck,
   boardDecks,
   selectedSkillClass,
   setArenaRef,
-  heroGradeFilter,
+  heroPoolFilter,
+  isEffectTagMode,
   heroSearchKeyword,
   selectedHeroName,
-  selectHero,
   activeChars,
   getTeamCharCount,
   getAssignedTeam,
   isHeroPlaced,
   filteredHeroPool,
-  buffSubFilter,
-  groupedBuffHeroes,
+  groupedTagHeroes,
   loadSelectedBoardDeck,
   computedRanges,
+  calculateAllRanges,
   cameraPositions,
   onDragStart,
   onDragStartFromPool,
@@ -750,18 +650,16 @@ const {
   removeHero,
   clearTeam,
   activeStatusTab,
+  selectStatusTeam,
   activeBoardType,
   getStatusTabLabel,
   getHeroImage,
   handleImageError,
   copyTeamDeckCode,
   copyToReverseTeam,
-  openBuffModal,
   onCameraDragStart,
   onCameraDragEnd,
-  filteredEffectGroupedList,
-  filteredDebuffGroupedList,
-  // 🌟 상세 정보 관련 변수 및 연동 핸들러 추가
+  filteredBoardEffectList,
   selectedHeroDetail,
   isLoadingHeroDetail,
   getBuffsByCategory,
@@ -773,16 +671,10 @@ const headerText = computed(() => texts.header[props.boardCategory] || texts.hea
 const controls = computed(() => {
   if (props.boardCategory === 'descent') return { deckLabel: texts.controls.descentDeckLabel };
   if (props.boardCategory === 'celestial') return { deckLabel: texts.controls.celestialDeckLabel };
-  return { deckLabel: texts.controls.deckSelectLabel };
-});
-
-const statusTabs = computed(() => {
-  if (props.boardCategory === 'descent') return [{ val: 1, label: '🛡️ T1' }, { val: '1_reverse', label: '🛡️ T1_reverse' }];
-  return [{ val: 1, label: '🛡️ T1' }, { val: 2, label: '🛡️ T2' }, { val: 3, label: '🛡️ T3' }];
+  return { deckLabel: texts.controls.nightmareDeckLabel };
 });
 </script>
 
 <style scoped>
 @import "../assets/styles/deck-build.css";
-
 </style>
