@@ -16,7 +16,12 @@
 /* ===================================================
    2. 최상단 대시보드
    =================================================== */
-.top-dashboard-zone { margin-bottom: 12px; }
+.top-dashboard-zone,
+.main-workspace-zone {
+  width: 100%;
+  min-width: 1200px;
+  box-sizing: border-box;
+}
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2b2f3a; padding-bottom: 8px; margin-bottom: 10px; gap: 12px; }
 .dashboard-header h2 { margin: 0; font-size: 18px !important; font-weight: 800; color: #ffffff; white-space: nowrap; }
 .content-tag { background-color: #5765f2; color: #ffffff; padding: 3px 10px; border-radius: 20px; font-size: 11px !important; font-weight: bold; white-space: nowrap; }
@@ -492,30 +497,24 @@
    5. 하단 실시간 분석 현황판 (Bottom Status Zone)
    =================================================== */
 .bottom-status-zone {
-  background-color: #161820;
-  border: 1px solid #2b2f3a;
-  border-radius: 8px;
-  padding: 10px 14px;
+  width: 100%;
+  min-width: 1200px;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .bottom-status-header {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid #2b2f3a;
-  padding-bottom: 8px;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 12px;
 }
 
-.status-team-indicator {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.status-team-indicator,
+.board-type-tab-menu {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .team-focus-badge {
@@ -957,9 +956,10 @@
    =================================================== */
 @media (max-width: 480px) {
   .arena-wrapper {
-    padding: 8px !important;
-    border-radius: 0 !important;
-    overflow-x: auto !important;
+    width: 100%;
+    min-width: 1200px; /* 다른 화면과 동일한 데스크톱 기준 최소 너비 유지 */
+    box-sizing: border-box;
+    overflow-x: auto;
   }
 
   .control-panel {
