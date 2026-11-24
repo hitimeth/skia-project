@@ -119,7 +119,7 @@
                 type="text" 
                 v-model="deckForm.log_date" 
                 @blur="formatLogDate" 
-                placeholder="예: 07/01"
+                placeholder="예: 26/07/01"
               >
             </div>
           </div>
