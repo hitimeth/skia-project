@@ -17,548 +17,583 @@
     </div>
 
     <!-- ================= [1] TAB: 신규영웅 (최신 5종 가로 스크롤 디스플레이) ================= -->
-    <div v-if="activeDetailTab === 'new'" class="horizontal-scroll-board">
-      <div 
-        v-for="code in targetDeckCodes" 
-        :key="code" 
-        class="info-section-wrapper compact-section hero-card-column"
-      >
-        <div class="section-title-bar">
-          <h3>캐릭터 버프 상세 정보</h3>
-          <span class="info-badge">ID: {{ code }}</span>
-        </div>
-        
-        <div class="vertical-scroll-board p-2">
-          <div v-if="getHeroDetailByCode(code)" class="hero-detail-container">
-            
-            <!-- 상단 프로필 헤더 -->
-            <div class="profile-header-card">
-              <div class="profile-avatar-box">
-                <img 
-                  :src="getHeroImage(getHeroDetailByCode(code).id)" 
-                  @error="handleImageError" 
-                  class="hero-detail-avatar" 
-                  :alt="getHeroDetailByCode(code).name"
-                />
-                <div class="hero-header-text">
-                  <h4 class="hero-detail-title">{{ getHeroDetailByCode(code).name }}</h4>
-                  <span class="hero-detail-code">ID: {{ code }}</span>
+    <template v-if="activeDetailTab === 'new'">
+      <!-- ✅ 영웅 빠른 포커스 바 (클릭 시 해당 카드가 첫 번째 위치로 이동 & 강조) -->
+      <div v-if="targetDeckCodes.length > 0" class="quick-focus-bar">
+        <button
+          v-for="(code, idx) in targetDeckCodes"
+          :key="'focus-new-' + code"
+          :class="['focus-chip-btn', { active: focusedNewIndex === idx }]"
+          @click="focusCard('new', idx)"
+        >
+          <img :src="getHeroImage(code)" @error="handleImageError" class="focus-chip-img" />
+          <span>{{ getHeroDetailByCode(code)?.name || code }}</span>
+        </button>
+      </div>
+
+      <div ref="newBoardRef" class="horizontal-scroll-board">
+        <div 
+          v-for="(code, idx) in targetDeckCodes" 
+          :key="code" 
+          :ref="el => { if (el) newCardRefs[idx] = el }"
+          class="info-section-wrapper compact-section hero-card-column"
+          @click="focusedNewIndex = idx"
+        >
+          
+          <div class="vertical-scroll-board p-2">
+            <div v-if="getHeroDetailByCode(code)" class="hero-detail-container">
+              
+              <!-- 상단 프로필 헤더 -->
+              <div class="profile-header-card">
+                <div class="profile-avatar-box">
+                  <img 
+                    :src="getHeroImage(getHeroDetailByCode(code).id)" 
+                    @error="handleImageError" 
+                    class="hero-detail-avatar" 
+                    :alt="getHeroDetailByCode(code).name"
+                  />
+                  <div class="hero-header-text">
+                    <h4 class="hero-detail-title">{{ getHeroDetailByCode(code).name }}</h4>
+                    <span class="hero-detail-code">ID: {{ code }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 5x5 전장판 & 사거리 오버레이 -->
-            <div class="mini-battlefield-wrapper mt-2">
-              <div class="mini-battle-pair-row">
-                <div class="mini-team-arena">
-                  <div class="mini-grid-skeleton">
-                    <div v-for="n in 25" :key="'t-cell-' + n" class="mini-grid-cell"></div>
-                    <div class="mini-char-card center-placed-hero">
-                      <img :src="getHeroImage(getHeroDetailByCode(code).id)" @error="handleImageError" class="mini-char-img" />
+              <!-- 5x5 전장판 & 사거리 오버레이 -->
+              <div class="mini-battlefield-wrapper mt-2">
+                <div class="mini-battle-pair-row">
+                  <div class="mini-team-arena">
+                    <div class="mini-grid-skeleton">
+                      <div v-for="n in 25" :key="'t-cell-' + n" class="mini-grid-cell"></div>
+                      <div class="mini-char-card center-placed-hero">
+                        <img :src="getHeroImage(getHeroDetailByCode(code).id)" @error="handleImageError" class="mini-char-img" />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div class="mini-boss-arena">
-                  <div class="mini-grid-skeleton">
-                    <div v-for="n in 25" :key="'b-cell-' + n" class="mini-grid-cell"></div>
-                    <div class="mini-boss-card center-placed-boss">
-                      <span class="mini-boss-emoji">😈</span>
+                  <div class="mini-boss-arena">
+                    <div class="mini-grid-skeleton">
+                      <div v-for="n in 25" :key="'b-cell-' + n" class="mini-grid-cell"></div>
+                      <div class="mini-boss-card center-placed-boss">
+                        <span class="mini-boss-emoji">😈</span>
+                      </div>
                     </div>
                   </div>
+
+                  <svg 
+                    v-if="getMiniRangeData(getHeroDetailByCode(code))" 
+                    class="mini-full-range-overlay" 
+                    viewBox="0 0 200 100" 
+                    preserveAspectRatio="none"
+                  >
+                    <template v-for="r in [getMiniRangeData(getHeroDetailByCode(code))]" :key="'mini-rng-' + code">
+                      <line 
+                        :x1="r.startX" :y1="r.startY" :x2="r.endX" :y2="r.endY" 
+                        :stroke="r.color" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.85" 
+                      />
+                      <circle :cx="r.endX" :cy="r.endY" r="2.2" :fill="r.color" />
+
+                      <path 
+                        v-if="(r.shape === '부채꼴' || r.shape === '반원') && r.pathD" 
+                        :d="r.pathD" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                      <circle 
+                        v-else-if="r.shape === '원' && r.radius > 0" 
+                        :cx="r.drawX" :cy="r.drawY" :r="r.radius" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                      <rect 
+                        v-else-if="r.shape === '사각형' && r.isForward && r.width > 0" 
+                        :x="r.drawX" :y="r.drawY - (r.height / 2)" 
+                        :width="r.width" :height="r.height" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                      <rect 
+                        v-else-if="r.shape === '사각형' && !r.isForward && r.width > 0" 
+                        :x="r.drawX - (r.width / 2)" :y="r.drawY - (r.height / 2)" 
+                        :width="r.width" :height="r.height" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                    </template>
+                  </svg>
                 </div>
-
-                <svg 
-                  v-if="getMiniRangeData(getHeroDetailByCode(code))" 
-                  class="mini-full-range-overlay" 
-                  viewBox="0 0 200 100" 
-                  preserveAspectRatio="none"
-                >
-                  <template v-for="r in [getMiniRangeData(getHeroDetailByCode(code))]" :key="'mini-rng-' + code">
-                    <line 
-                      :x1="r.startX" :y1="r.startY" :x2="r.endX" :y2="r.endY" 
-                      :stroke="r.color" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.85" 
-                    />
-                    <circle :cx="r.endX" :cy="r.endY" r="2.2" :fill="r.color" />
-
-                    <path 
-                      v-if="(r.shape === '부채꼴' || r.shape === '반원') && r.pathD" 
-                      :d="r.pathD" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                    <circle 
-                      v-else-if="r.shape === '원' && r.radius > 0" 
-                      :cx="r.drawX" :cy="r.drawY" :r="r.radius" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                    <rect 
-                      v-else-if="r.shape === '사각형' && r.isForward && r.width > 0" 
-                      :x="r.drawX" :y="r.drawY - (r.height / 2)" 
-                      :width="r.width" :height="r.height" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                    <rect 
-                      v-else-if="r.shape === '사각형' && !r.isForward && r.width > 0" 
-                      :x="r.drawX - (r.width / 2)" :y="r.drawY - (r.height / 2)" 
-                      :width="r.width" :height="r.height" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                  </template>
-                </svg>
               </div>
-            </div>
 
-            <!-- 기본 스킬/공격 정보 카드 -->
-            <div class="effect-group-box info-group mt-2">
-              <div class="buff-card-list">
-                <!-- 1. 일반공격 -->
-                <div class="buff-item-card card-info fit-card">
-                  <div class="fit-row">
-                    <div class="fit-left">
-                      <span class="slim-label-box">일반</span>
-                      <span class="uniform-text text-truncate">
-                        {{ getHeroDetailByCode(code).normal_damage_name || '공격력피해량' }}
-                      </span>
-                    </div>
-                    <div class="fit-right">
-                      <span class="uniform-val text-yellow">
-                        {{ getHeroDetailByCode(code).normal_damage }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 2. 치명타공격 -->
-                <div class="buff-item-card card-info fit-card">
-                  <div class="fit-row">
-                    <div class="fit-left">
-                      <span class="slim-label-box label-crit">치명타</span>
-                      <span class="uniform-text text-truncate">
-                        {{ getHeroDetailByCode(code).critSdc02_damage_name || '치명타피해량' }}
-                      </span>
-                    </div>
-                    <div class="fit-right">
-                      <span class="uniform-val text-yellow">
-                        {{ getHeroDetailByCode(code).critSdc02_value }}
-                      </span>
-                      <span 
-                        v-if="getHeroDetailByCode(code).critSdc02_damage && getHeroDetailByCode(code).critSdc02_damage !== '0%' && getHeroDetailByCode(code).critSdc02_damage !== '-'" 
-                        class="uniform-badge-sm"
-                      >
-                        MAX {{ getHeroDetailByCode(code).critSdc02_damage }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 3. 액티브스킬 -->
-                <div class="buff-item-card card-info card-active-skill fit-card">
-                  <div class="fit-row">
-                    <div class="fit-left">
-                      <span class="slim-label-box label-active">액티브</span>
-                      <span class="uniform-text text-truncate">{{ getHeroDetailByCode(code).activeSdc01_skill_name || '공격력피해량' }}</span>
-                    </div>
-                    <div class="fit-right">
-                      <span class="uniform-val text-red-main">{{ getHeroDetailByCode(code).activeSdc01_effect_value }}</span>
-                      <template v-if="getHeroDetailByCode(code).activeSdc01_damage && getHeroDetailByCode(code).activeSdc01_damage !== '-' && getHeroDetailByCode(code).activeSdc01_damage !== getHeroDetailByCode(code).activeSdc01_effect_value">
-                        <span class="uniform-badge-sm">
-                          MAX {{ getHeroDetailByCode(code).activeSdc01_damage }}
+              <!-- 기본 스킬/공격 정보 카드 -->
+              <div class="effect-group-box info-group mt-2">
+                <div class="buff-card-list">
+                  <!-- 1. 일반공격 -->
+                  <div class="buff-item-card card-info fit-card">
+                    <div class="fit-row">
+                      <div class="fit-left">
+                        <span class="slim-label-box">일반</span>
+                        <span class="uniform-text text-truncate">
+                          {{ getHeroDetailByCode(code).normal_damage_name || '공격력피해량' }}
                         </span>
-                      </template>
+                      </div>
+                      <div class="fit-right">
+                        <span class="uniform-val text-yellow">
+                          {{ getHeroDetailByCode(code).normal_damage }}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div v-if="getHeroDetailByCode(code).activeSdc01_shape !== '-' || getHeroDetailByCode(code).activeSdc01_area !== '-'" class="info-row-secondary fit-meta">
-                    <span v-if="getHeroDetailByCode(code).activeSdc01_shape !== '-'" class="meta-tag">{{ getHeroDetailByCode(code).activeSdc01_shape }}</span>
-                    <span v-if="getHeroDetailByCode(code).activeSdc01_area !== '-'" class="meta-tag area-tag text-truncate">{{ getHeroDetailByCode(code).activeSdc01_area }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 버프/디버프 목록 (중첩 계산 및 기호 표시) -->
-            <div class="hero-buff-list-box mt-2">                
-              <div v-if="getHeroDetailByCode(code).buffs && getHeroDetailByCode(code).buffs.length > 0" class="buff-category-wrapper">
-                <!-- 자신 버프 -->
-                <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'SELF_BUFF').length > 0" class="effect-group-box self-group">
-                  <div class="group-header-label text-self">👤 자신 버프</div>
-                  <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'SELF_BUFF')" :key="b.group_key" class="buff-item-card card-self compact-buff-item">
-                      <div class="buff-item-left">
+                  <!-- 2. 치명타공격 -->
+                  <div class="buff-item-card card-info fit-card">
+                    <div class="fit-row">
+                      <div class="fit-left">
+                        <span class="slim-label-box label-crit">치명타</span>
+                        <span class="uniform-text text-truncate">
+                          {{ getHeroDetailByCode(code).critSdc02_damage_name || '치명타피해량' }}
+                        </span>
+                      </div>
+                      <div class="fit-right">
+                        <span class="uniform-val text-yellow">
+                          {{ getHeroDetailByCode(code).critSdc02_value }}
+                        </span>
                         <span 
-                          v-for="sym in b.skill_symbols" 
-                          :key="sym" 
-                          class="skill-type-badge" 
-                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          v-if="getHeroDetailByCode(code).critSdc02_damage && getHeroDetailByCode(code).critSdc02_damage !== '0%' && getHeroDetailByCode(code).critSdc02_damage !== '-'" 
+                          class="uniform-badge-sm"
                         >
-                          {{ sym }}
+                          MAX {{ getHeroDetailByCode(code).critSdc02_damage }}
                         </span>
-                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                        <span v-if="b.stack_count > 1" class="stack-count-badge">
-                          {{ b.stack_count }}중첩
-                        </span>
-                      </div>
-                      <div class="buff-item-right">
-                        <span class="uniform-val">{{ b.total_display_value }}</span>
-                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <!-- 아군 버프 -->
-                <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'TEAM_BUFF').length > 0" class="effect-group-box team-group">
-                  <div class="group-header-label text-team">🛡️ 아군 버프</div>
-                  <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'TEAM_BUFF')" :key="b.group_key" class="buff-item-card card-team compact-buff-item">
-                      <div class="buff-item-left">
-                        <span 
-                          v-for="sym in b.skill_symbols" 
-                          :key="sym" 
-                          class="skill-type-badge" 
-                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
-                        >
-                          {{ sym }}
-                        </span>
-                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                        <span v-if="b.stack_count > 1" class="stack-count-badge">
-                          {{ b.stack_count }}중첩
-                        </span>
+                  <!-- 3. 액티브스킬 -->
+                  <div class="buff-item-card card-info card-active-skill fit-card">
+                    <div class="fit-row">
+                      <div class="fit-left">
+                        <span class="slim-label-box label-active">액티브</span>
+                        <span class="uniform-text text-truncate">{{ getHeroDetailByCode(code).activeSdc01_skill_name || '공격력피해량' }}</span>
                       </div>
-                      <div class="buff-item-right">
-                        <span class="uniform-val text-green">{{ b.total_display_value }}</span>
-                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                      <div class="fit-right">
+                        <span class="uniform-val text-red-main">{{ getHeroDetailByCode(code).activeSdc01_effect_value }}</span>
+                        <template v-if="getHeroDetailByCode(code).activeSdc01_damage && getHeroDetailByCode(code).activeSdc01_damage !== '-' && getHeroDetailByCode(code).activeSdc01_damage !== getHeroDetailByCode(code).activeSdc01_effect_value">
+                          <span class="uniform-badge-sm">
+                            MAX {{ getHeroDetailByCode(code).activeSdc01_damage }}
+                          </span>
+                        </template>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <!-- 적군 디버프 -->
-                <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'DEBUFF').length > 0" class="effect-group-box debuff-group">
-                  <div class="group-header-label text-debuff">⚔️ 적군 디버프</div>
-                  <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'DEBUFF')" :key="b.group_key" class="buff-item-card card-debuff compact-buff-item">
-                      <div class="buff-item-left">
-                        <span 
-                          v-for="sym in b.skill_symbols" 
-                          :key="sym" 
-                          class="skill-type-badge" 
-                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
-                        >
-                          {{ sym }}
-                        </span>
-                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                        <span v-if="b.stack_count > 1" class="stack-count-badge">
-                          {{ b.stack_count }}중첩
-                        </span>
-                      </div>
-                      <div class="buff-item-right">
-                        <span class="uniform-val text-red">{{ b.total_display_value }}</span>
-                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
-                      </div>
+                    <div v-if="getHeroDetailByCode(code).activeSdc01_shape !== '-' || getHeroDetailByCode(code).activeSdc01_area !== '-'" class="info-row-secondary fit-meta">
+                      <span v-if="getHeroDetailByCode(code).activeSdc01_shape !== '-'" class="meta-tag">{{ getHeroDetailByCode(code).activeSdc01_shape }}</span>
+                      <span v-if="getHeroDetailByCode(code).activeSdc01_area !== '-'" class="meta-tag area-tag text-truncate">{{ getHeroDetailByCode(code).activeSdc01_area }}</span>
                     </div>
                   </div>
                 </div>
               </div>
-              <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
+
+              <!-- 버프/디버프 목록 (중첩 계산 및 기호 표시) -->
+              <div class="hero-buff-list-box mt-2">                
+                <div v-if="getHeroDetailByCode(code).buffs && getHeroDetailByCode(code).buffs.length > 0" class="buff-category-wrapper">
+                  <!-- 자신 버프 -->
+                  <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'SELF_BUFF').length > 0" class="effect-group-box self-group">
+                    <div class="group-header-label text-self">👤 자신 버프</div>
+                    <div class="buff-card-list">
+                      <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'SELF_BUFF')" :key="b.group_key" class="buff-item-card card-self compact-buff-item">
+                        <div class="buff-item-left">
+                          <span 
+                            v-for="sym in b.skill_symbols" 
+                            :key="sym" 
+                            class="skill-type-badge" 
+                            :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          >
+                            {{ sym }}
+                          </span>
+                          <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                          <span v-if="b.stack_count > 1" class="stack-count-badge">
+                            {{ b.stack_count }}중첩
+                          </span>
+                        </div>
+                        <div class="buff-item-right">
+                          <span class="uniform-val">{{ b.total_display_value }}</span>
+                          <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 아군 버프 -->
+                  <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'TEAM_BUFF').length > 0" class="effect-group-box team-group">
+                    <div class="group-header-label text-team">🛡️ 아군 버프</div>
+                    <div class="buff-card-list">
+                      <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'TEAM_BUFF')" :key="b.group_key" class="buff-item-card card-team compact-buff-item">
+                        <div class="buff-item-left">
+                          <span 
+                            v-for="sym in b.skill_symbols" 
+                            :key="sym" 
+                            class="skill-type-badge" 
+                            :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          >
+                            {{ sym }}
+                          </span>
+                          <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                          <span v-if="b.stack_count > 1" class="stack-count-badge">
+                            {{ b.stack_count }}중첩
+                          </span>
+                        </div>
+                        <div class="buff-item-right">
+                          <span class="uniform-val text-green">{{ b.total_display_value }}</span>
+                          <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 적군 디버프 -->
+                  <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'DEBUFF').length > 0" class="effect-group-box debuff-group">
+                    <div class="group-header-label text-debuff">⚔️ 적군 디버프</div>
+                    <div class="buff-card-list">
+                      <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'DEBUFF')" :key="b.group_key" class="buff-item-card card-debuff compact-buff-item">
+                        <div class="buff-item-left">
+                          <span 
+                            v-for="sym in b.skill_symbols" 
+                            :key="sym" 
+                            class="skill-type-badge" 
+                            :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          >
+                            {{ sym }}
+                          </span>
+                          <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                          <span v-if="b.stack_count > 1" class="stack-count-badge">
+                            {{ b.stack_count }}중첩
+                          </span>
+                        </div>
+                        <div class="buff-item-right">
+                          <span class="uniform-val text-red">{{ b.total_display_value }}</span>
+                          <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
+              </div>
+
             </div>
 
-          </div>
-
-          <div v-else class="empty-status-alert compact-alert">
-            {{ loadingMap[code] ? '캐릭터 정보 조회 중...' : `ID: [${code}] 캐릭터 데이터를 불러올 수 없습니다.` }}
+            <div v-else class="empty-status-alert compact-alert">
+              {{ loadingMap[code] ? '캐릭터 정보 조회 중...' : `ID: [${code}] 캐릭터 데이터를 불러올 수 없습니다.` }}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- ================= [2] TAB: 영웅비교 (자동완성 검색형 5종 가로 스크롤) ================= -->
-    <div v-else-if="activeDetailTab === 'compare'" class="horizontal-scroll-board">
-      <div 
-        v-for="index in 5" 
-        :key="'compare-col-' + index" 
-        class="info-section-wrapper compact-section hero-card-column"
-      >
-        <!-- 검색어 자동완성 바 -->
-        <div class="section-title-bar select-title-bar search-autocomplete-bar">
-          <div class="autocomplete-input-wrapper">
-            <input 
-              type="text" 
-              v-model="compareSearchQueries[index - 1]"
-              @focus="showDropdownFlags[index - 1] = true"
-              @blur="onSearchBlur(index - 1)"
-              :placeholder="`🔍 영웅 ${index} 이름/ID 검색...`"
-              class="search-hero-input"
-            />
-            <button 
-              v-if="compareSearchQueries[index - 1]" 
-              @click="clearCompareHeroSlot(index - 1)" 
-              class="clear-search-btn"
-              title="선택 초기화"
+    <template v-else-if="activeDetailTab === 'compare'">
+      <!-- ✅ 영웅비교 빠른 포커스 바 -->
+      <div class="quick-focus-bar">
+        <button
+          v-for="index in 5"
+          :key="'focus-cmp-' + index"
+          :class="['focus-chip-btn', { active: focusedCompareIndex === index - 1 }]"
+          @click="focusCard('compare', index - 1)"
+        >
+          <img 
+            v-if="compareHeroDetails[index - 1]" 
+            :src="getHeroImage(compareHeroDetails[index - 1].id)" 
+            @error="handleImageError" 
+            class="focus-chip-img" 
+          />
+          <span>{{ compareHeroDetails[index - 1]?.name || `슬롯 ${index}` }}</span>
+        </button>
+      </div>
+
+      <div ref="compareBoardRef" class="horizontal-scroll-board">
+        <div 
+          v-for="index in 5" 
+          :key="'compare-col-' + index" 
+          :ref="el => { if (el) compareCardRefs[index - 1] = el }"
+          class="info-section-wrapper compact-section hero-card-column"
+          @click="focusedCompareIndex = index - 1"
+        >
+          <!-- 검색어 자동완성 바 -->
+          <div class="section-title-bar select-title-bar search-autocomplete-bar">
+            <div class="autocomplete-input-wrapper">
+              <input 
+                type="text" 
+                v-model="compareSearchQueries[index - 1]"
+                @focus="showDropdownFlags[index - 1] = true"
+                @blur="onSearchBlur(index - 1)"
+                :placeholder="`🔍 영웅 ${index} 이름/ID 검색...`"
+                class="search-hero-input"
+              />
+              <button 
+                v-if="compareSearchQueries[index - 1]" 
+                @click="clearCompareHeroSlot(index - 1)" 
+                class="clear-search-btn"
+                title="선택 초기화"
+              >
+                ✕
+              </button>
+            </div>
+
+            <ul 
+              v-if="showDropdownFlags[index - 1] && getFilteredHeroList(compareSearchQueries[index - 1]).length > 0" 
+              class="autocomplete-dropdown-list"
             >
-              ✕
-            </button>
+              <li 
+                v-for="h in getFilteredHeroList(compareSearchQueries[index - 1])" 
+                :key="h.id"
+                @mousedown.prevent="selectHeroFromAutocomplete(index - 1, h)"
+                class="autocomplete-item"
+              >
+                <img :src="getHeroImage(h.id)" @error="handleImageError" class="mini-hero-thumb" />
+                <div class="mini-hero-info">
+                  <span class="mini-hero-name">{{ h.name }}</span>
+                  <span class="mini-hero-id">ID: {{ h.id }}</span>
+                </div>
+              </li>
+            </ul>
           </div>
 
-          <ul 
-            v-if="showDropdownFlags[index - 1] && getFilteredHeroList(compareSearchQueries[index - 1]).length > 0" 
-            class="autocomplete-dropdown-list"
-          >
-            <li 
-              v-for="h in getFilteredHeroList(compareSearchQueries[index - 1])" 
-              :key="h.id"
-              @mousedown.prevent="selectHeroFromAutocomplete(index - 1, h)"
-              class="autocomplete-item"
-            >
-              <img :src="getHeroImage(h.id)" @error="handleImageError" class="mini-hero-thumb" />
-              <div class="mini-hero-info">
-                <span class="mini-hero-name">{{ h.name }}</span>
-                <span class="mini-hero-id">ID: {{ h.id }}</span>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div class="vertical-scroll-board p-2">
-          <div v-if="compareHeroDetails[index - 1]" class="hero-detail-container">
-            <div class="profile-header-card">
-              <div class="profile-avatar-box">
-                <img 
-                  :src="getHeroImage(compareHeroDetails[index - 1].id)" 
-                  @error="handleImageError" 
-                  class="hero-detail-avatar" 
-                />
-                <div class="hero-header-text">
-                  <h4 class="hero-detail-title">{{ compareHeroDetails[index - 1].name }}</h4>
-                  <span class="hero-detail-code">ID: {{ compareHeroDetails[index - 1].id }}</span>
+          <div class="vertical-scroll-board p-2">
+            <div v-if="compareHeroDetails[index - 1]" class="hero-detail-container">
+              <div class="profile-header-card">
+                <div class="profile-avatar-box">
+                  <img 
+                    :src="getHeroImage(compareHeroDetails[index - 1].id)" 
+                    @error="handleImageError" 
+                    class="hero-detail-avatar" 
+                  />
+                  <div class="hero-header-text">
+                    <h4 class="hero-detail-title">{{ compareHeroDetails[index - 1].name }}</h4>
+                    <span class="hero-detail-code">ID: {{ compareHeroDetails[index - 1].id }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 영웅비교용 미니 전장판 -->
-            <div class="mini-battlefield-wrapper mt-2">
-              <div class="mini-battle-pair-row">
-                <div class="mini-team-arena">
-                  <div class="mini-grid-skeleton">
-                    <div v-for="n in 25" :key="'cb-t-cell-' + n" class="mini-grid-cell"></div>
-                    <div class="mini-char-card center-placed-hero">
-                      <img :src="getHeroImage(compareHeroDetails[index - 1].id)" @error="handleImageError" class="mini-char-img" />
+              <!-- 영웅비교용 미니 전장판 -->
+              <div class="mini-battlefield-wrapper mt-2">
+                <div class="mini-battle-pair-row">
+                  <div class="mini-team-arena">
+                    <div class="mini-grid-skeleton">
+                      <div v-for="n in 25" :key="'cb-t-cell-' + n" class="mini-grid-cell"></div>
+                      <div class="mini-char-card center-placed-hero">
+                        <img :src="getHeroImage(compareHeroDetails[index - 1].id)" @error="handleImageError" class="mini-char-img" />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div class="mini-boss-arena">
-                  <div class="mini-grid-skeleton">
-                    <div v-for="n in 25" :key="'cb-b-cell-' + n" class="mini-grid-cell"></div>
-                    <div class="mini-boss-card center-placed-boss">
-                      <span class="mini-boss-emoji">😈</span>
+                  <div class="mini-boss-arena">
+                    <div class="mini-grid-skeleton">
+                      <div v-for="n in 25" :key="'cb-b-cell-' + n" class="mini-grid-cell"></div>
+                      <div class="mini-boss-card center-placed-boss">
+                        <span class="mini-boss-emoji">😈</span>
+                      </div>
                     </div>
                   </div>
+
+                  <svg 
+                    v-if="getMiniRangeData(compareHeroDetails[index - 1])" 
+                    class="mini-full-range-overlay" 
+                    viewBox="0 0 200 100" 
+                    preserveAspectRatio="none"
+                  >
+                    <template v-for="r in [getMiniRangeData(compareHeroDetails[index - 1])]" :key="'mini-cmp-rng-' + index">
+                      <line 
+                        :x1="r.startX" :y1="r.startY" :x2="r.endX" :y2="r.endY" 
+                        :stroke="r.color" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.85" 
+                      />
+                      <circle :cx="r.endX" :cy="r.endY" r="2.2" :fill="r.color" />
+
+                      <path 
+                        v-if="(r.shape === '부채꼴' || r.shape === '반원') && r.pathD" 
+                        :d="r.pathD" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                      <circle 
+                        v-else-if="r.shape === '원' && r.radius > 0" 
+                        :cx="r.drawX" :cy="r.drawY" :r="r.radius" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                      <rect 
+                        v-else-if="r.shape === '사각형' && r.isForward && r.width > 0" 
+                        :x="r.drawX" :y="r.drawY - (r.height / 2)" 
+                        :width="r.width" :height="r.height" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                      <rect 
+                        v-else-if="r.shape === '사각형' && !r.isForward && r.width > 0" 
+                        :x="r.drawX - (r.width / 2)" :y="r.drawY - (r.height / 2)" 
+                        :width="r.width" :height="r.height" 
+                        :fill="r.color" fill-opacity="0.22" 
+                        :stroke="r.color" stroke-width="1.2" 
+                      />
+                    </template>
+                  </svg>
                 </div>
-
-                <svg 
-                  v-if="getMiniRangeData(compareHeroDetails[index - 1])" 
-                  class="mini-full-range-overlay" 
-                  viewBox="0 0 200 100" 
-                  preserveAspectRatio="none"
-                >
-                  <template v-for="r in [getMiniRangeData(compareHeroDetails[index - 1])]" :key="'mini-cmp-rng-' + index">
-                    <line 
-                      :x1="r.startX" :y1="r.startY" :x2="r.endX" :y2="r.endY" 
-                      :stroke="r.color" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.85" 
-                    />
-                    <circle :cx="r.endX" :cy="r.endY" r="2.2" :fill="r.color" />
-
-                    <path 
-                      v-if="(r.shape === '부채꼴' || r.shape === '반원') && r.pathD" 
-                      :d="r.pathD" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                    <circle 
-                      v-else-if="r.shape === '원' && r.radius > 0" 
-                      :cx="r.drawX" :cy="r.drawY" :r="r.radius" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                    <rect 
-                      v-else-if="r.shape === '사각형' && r.isForward && r.width > 0" 
-                      :x="r.drawX" :y="r.drawY - (r.height / 2)" 
-                      :width="r.width" :height="r.height" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                    <rect 
-                      v-else-if="r.shape === '사각형' && !r.isForward && r.width > 0" 
-                      :x="r.drawX - (r.width / 2)" :y="r.drawY - (r.height / 2)" 
-                      :width="r.width" :height="r.height" 
-                      :fill="r.color" fill-opacity="0.22" 
-                      :stroke="r.color" stroke-width="1.2" 
-                    />
-                  </template>
-                </svg>
               </div>
-            </div>
 
-            <!-- 스킬 정보 -->
-            <div class="effect-group-box info-group mt-2">
-              <div class="buff-card-list">
-                <div class="buff-item-card card-info fit-card">
-                  <div class="fit-row">
-                    <div class="fit-left">
-                      <span class="slim-label-box">일반</span>
-                      <span class="uniform-text text-truncate">
-                        {{ compareHeroDetails[index - 1].normal_damage_name || '공격력피해량' }}
-                      </span>
-                    </div>
-                    <div class="fit-right">
-                      <span class="uniform-val text-yellow">{{ compareHeroDetails[index - 1].normal_damage }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="buff-item-card card-info fit-card">
-                  <div class="fit-row">
-                    <div class="fit-left">
-                      <span class="slim-label-box label-crit">치명타</span>
-                      <span class="uniform-text text-truncate">
-                        {{ compareHeroDetails[index - 1].critSdc02_damage_name || '치명타피해량' }}
-                      </span>
-                    </div>
-                    <div class="fit-right">
-                      <span class="uniform-val text-yellow">{{ compareHeroDetails[index - 1].critSdc02_value }}</span>
-                      <span 
-                        v-if="compareHeroDetails[index - 1].critSdc02_damage && compareHeroDetails[index - 1].critSdc02_damage !== '0%' && compareHeroDetails[index - 1].critSdc02_damage !== '-'" 
-                        class="uniform-badge-sm"
-                      >
-                        MAX {{ compareHeroDetails[index - 1].critSdc02_damage }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="buff-item-card card-info card-active-skill fit-card">
-                  <div class="fit-row">
-                    <div class="fit-left">
-                      <span class="slim-label-box label-active">액티브</span>
-                      <span class="uniform-text text-truncate">{{ compareHeroDetails[index - 1].activeSdc01_skill_name || '공격력피해량' }}</span>
-                    </div>
-                    <div class="fit-right">
-                      <span class="uniform-val text-red-main">{{ compareHeroDetails[index - 1].activeSdc01_effect_value }}</span>
-                      <template v-if="compareHeroDetails[index - 1].activeSdc01_damage && compareHeroDetails[index - 1].activeSdc01_damage !== '-' && compareHeroDetails[index - 1].activeSdc01_damage !== compareHeroDetails[index - 1].activeSdc01_effect_value">
-                        <span class="uniform-badge-sm">
-                          MAX {{ compareHeroDetails[index - 1].activeSdc01_damage }}
+              <!-- 스킬 정보 -->
+              <div class="effect-group-box info-group mt-2">
+                <div class="buff-card-list">
+                  <div class="buff-item-card card-info fit-card">
+                    <div class="fit-row">
+                      <div class="fit-left">
+                        <span class="slim-label-box">일반</span>
+                        <span class="uniform-text text-truncate">
+                          {{ compareHeroDetails[index - 1].normal_damage_name || '공격력피해량' }}
                         </span>
-                      </template>
+                      </div>
+                      <div class="fit-right">
+                        <span class="uniform-val text-yellow">{{ compareHeroDetails[index - 1].normal_damage }}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div v-if="compareHeroDetails[index - 1].activeSdc01_shape !== '-' || compareHeroDetails[index - 1].activeSdc01_area !== '-'" class="info-row-secondary fit-meta">
-                    <span v-if="compareHeroDetails[index - 1].activeSdc01_shape !== '-'" class="meta-tag">{{ compareHeroDetails[index - 1].activeSdc01_shape }}</span>
-                    <span v-if="compareHeroDetails[index - 1].activeSdc01_area !== '-'" class="meta-tag area-tag text-truncate">{{ compareHeroDetails[index - 1].activeSdc01_area }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 버프/디버프 목록 (중첩 계산 및 기호 표시) -->
-            <div class="hero-buff-list-box mt-2">
-              <div v-if="compareHeroDetails[index - 1].buffs && compareHeroDetails[index - 1].buffs.length > 0" class="buff-category-wrapper">
-                <!-- 1. 자신 버프 -->
-                <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'SELF_BUFF').length > 0" class="effect-group-box self-group">
-                  <div class="group-header-label text-self">👤 자신 버프</div>
-                  <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'SELF_BUFF')" :key="b.group_key" class="buff-item-card card-self compact-buff-item">
-                      <div class="buff-item-left">
+                  <div class="buff-item-card card-info fit-card">
+                    <div class="fit-row">
+                      <div class="fit-left">
+                        <span class="slim-label-box label-crit">치명타</span>
+                        <span class="uniform-text text-truncate">
+                          {{ compareHeroDetails[index - 1].critSdc02_damage_name || '치명타피해량' }}
+                        </span>
+                      </div>
+                      <div class="fit-right">
+                        <span class="uniform-val text-yellow">{{ compareHeroDetails[index - 1].critSdc02_value }}</span>
                         <span 
-                          v-for="sym in b.skill_symbols" 
-                          :key="sym" 
-                          class="skill-type-badge" 
-                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          v-if="compareHeroDetails[index - 1].critSdc02_damage && compareHeroDetails[index - 1].critSdc02_damage !== '0%' && compareHeroDetails[index - 1].critSdc02_damage !== '-'" 
+                          class="uniform-badge-sm"
                         >
-                          {{ sym }}
+                          MAX {{ compareHeroDetails[index - 1].critSdc02_damage }}
                         </span>
-                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                        <span v-if="b.stack_count > 1" class="stack-count-badge">
-                          {{ b.stack_count }}중첩
-                        </span>
-                      </div>
-                      <div class="buff-item-right">
-                        <span class="uniform-val">{{ b.total_display_value }}</span>
-                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <!-- 2. 아군 버프 -->
-                <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'TEAM_BUFF').length > 0" class="effect-group-box team-group">
-                  <div class="group-header-label text-team">🛡️ 아군 버프</div>
-                  <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'TEAM_BUFF')" :key="b.group_key" class="buff-item-card card-team compact-buff-item">
-                      <div class="buff-item-left">
-                        <span 
-                          v-for="sym in b.skill_symbols" 
-                          :key="sym" 
-                          class="skill-type-badge" 
-                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
-                        >
-                          {{ sym }}
-                        </span>
-                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                        <span v-if="b.stack_count > 1" class="stack-count-badge">
-                          {{ b.stack_count }}중첩
-                        </span>
+                  <div class="buff-item-card card-info card-active-skill fit-card">
+                    <div class="fit-row">
+                      <div class="fit-left">
+                        <span class="slim-label-box label-active">액티브</span>
+                        <span class="uniform-text text-truncate">{{ compareHeroDetails[index - 1].activeSdc01_skill_name || '공격력피해량' }}</span>
                       </div>
-                      <div class="buff-item-right">
-                        <span class="uniform-val text-green">{{ b.total_display_value }}</span>
-                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                      <div class="fit-right">
+                        <span class="uniform-val text-red-main">{{ compareHeroDetails[index - 1].activeSdc01_effect_value }}</span>
+                        <template v-if="compareHeroDetails[index - 1].activeSdc01_damage && compareHeroDetails[index - 1].activeSdc01_damage !== '-' && compareHeroDetails[index - 1].activeSdc01_damage !== compareHeroDetails[index - 1].activeSdc01_effect_value">
+                          <span class="uniform-badge-sm">
+                            MAX {{ compareHeroDetails[index - 1].activeSdc01_damage }}
+                          </span>
+                        </template>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <!-- 3. 적군 디버프 -->
-                <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'DEBUFF').length > 0" class="effect-group-box debuff-group">
-                  <div class="group-header-label text-debuff">⚔️ 적군 디버프</div>
-                  <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'DEBUFF')" :key="b.group_key" class="buff-item-card card-debuff compact-buff-item">
-                      <div class="buff-item-left">
-                        <span 
-                          v-for="sym in b.skill_symbols" 
-                          :key="sym" 
-                          class="skill-type-badge" 
-                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
-                        >
-                          {{ sym }}
-                        </span>
-                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
-                        <span v-if="b.stack_count > 1" class="stack-count-badge">
-                          {{ b.stack_count }}중첩
-                        </span>
-                      </div>
-                      <div class="buff-item-right">
-                        <span class="uniform-val text-red">{{ b.total_display_value }}</span>
-                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
-                      </div>
+                    <div v-if="compareHeroDetails[index - 1].activeSdc01_shape !== '-' || compareHeroDetails[index - 1].activeSdc01_area !== '-'" class="info-row-secondary fit-meta">
+                      <span v-if="compareHeroDetails[index - 1].activeSdc01_shape !== '-'" class="meta-tag">{{ compareHeroDetails[index - 1].activeSdc01_shape }}</span>
+                      <span v-if="compareHeroDetails[index - 1].activeSdc01_area !== '-'" class="meta-tag area-tag text-truncate">{{ compareHeroDetails[index - 1].activeSdc01_area }}</span>
                     </div>
                   </div>
                 </div>
               </div>
-              <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
-            </div>
 
-          </div>
-          <div v-else class="empty-status-alert compact-alert select-placeholder">
-            <span>{{ loadingCompareMap[index - 1] ? '영웅 정보 불러오는 중...' : `영웅 ${index}번 검색창에 이름이나 ID를 입력하세요` }}</span>
+              <!-- 버프/디버프 목록 (중첩 계산 및 기호 표시) -->
+              <div class="hero-buff-list-box mt-2">
+                <div v-if="compareHeroDetails[index - 1].buffs && compareHeroDetails[index - 1].buffs.length > 0" class="buff-category-wrapper">
+                  <!-- 1. 자신 버프 -->
+                  <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'SELF_BUFF').length > 0" class="effect-group-box self-group">
+                    <div class="group-header-label text-self">👤 자신 버프</div>
+                    <div class="buff-card-list">
+                      <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'SELF_BUFF')" :key="b.group_key" class="buff-item-card card-self compact-buff-item">
+                        <div class="buff-item-left">
+                          <span 
+                            v-for="sym in b.skill_symbols" 
+                            :key="sym" 
+                            class="skill-type-badge" 
+                            :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          >
+                            {{ sym }}
+                          </span>
+                          <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                          <span v-if="b.stack_count > 1" class="stack-count-badge">
+                            {{ b.stack_count }}중첩
+                          </span>
+                        </div>
+                        <div class="buff-item-right">
+                          <span class="uniform-val">{{ b.total_display_value }}</span>
+                          <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. 아군 버프 -->
+                  <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'TEAM_BUFF').length > 0" class="effect-group-box team-group">
+                    <div class="group-header-label text-team">🛡️ 아군 버프</div>
+                    <div class="buff-card-list">
+                      <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'TEAM_BUFF')" :key="b.group_key" class="buff-item-card card-team compact-buff-item">
+                        <div class="buff-item-left">
+                          <span 
+                            v-for="sym in b.skill_symbols" 
+                            :key="sym" 
+                            class="skill-type-badge" 
+                            :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          >
+                            {{ sym }}
+                          </span>
+                          <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                          <span v-if="b.stack_count > 1" class="stack-count-badge">
+                            {{ b.stack_count }}중첩
+                          </span>
+                        </div>
+                        <div class="buff-item-right">
+                          <span class="uniform-val text-green">{{ b.total_display_value }}</span>
+                          <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 3. 적군 디버프 -->
+                  <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'DEBUFF').length > 0" class="effect-group-box debuff-group">
+                    <div class="group-header-label text-debuff">⚔️ 적군 디버프</div>
+                    <div class="buff-card-list">
+                      <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'DEBUFF')" :key="b.group_key" class="buff-item-card card-debuff compact-buff-item">
+                        <div class="buff-item-left">
+                          <span 
+                            v-for="sym in b.skill_symbols" 
+                            :key="sym" 
+                            class="skill-type-badge" 
+                            :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                          >
+                            {{ sym }}
+                          </span>
+                          <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                          <span v-if="b.stack_count > 1" class="stack-count-badge">
+                            {{ b.stack_count }}중첩
+                          </span>
+                        </div>
+                        <div class="buff-item-right">
+                          <span class="uniform-val text-red">{{ b.total_display_value }}</span>
+                          <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-text">- 등록된 스킬/버프 정보가 없습니다. -</div>
+              </div>
+
+            </div>
+            <div v-else class="empty-status-alert compact-alert select-placeholder">
+              <span>{{ loadingCompareMap[index - 1] ? '영웅 정보 불러오는 중...' : `영웅 ${index}번 검색창에 이름이나 ID를 입력하세요` }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
   </div>
 </template>
@@ -596,6 +631,39 @@ const showDropdownFlags = ref([false, false, false, false, false]);
 const compareHeroIds = ref([null, null, null, null, null]);
 const compareHeroDetails = reactive([null, null, null, null, null]);
 const loadingCompareMap = reactive([false, false, false, false, false]);
+
+// ================= [카드 빠른 포커스 및 첫 번째 위치 이동] =================
+const newBoardRef = ref(null);
+const newCardRefs = ref([]);
+const focusedNewIndex = ref(0);
+
+const compareBoardRef = ref(null);
+const compareCardRefs = ref([]);
+const focusedCompareIndex = ref(0);
+
+const focusCard = (tabType, index) => {
+  if (tabType === 'new') {
+    focusedNewIndex.value = index;
+    const board = newBoardRef.value;
+    const card = newCardRefs.value[index];
+    if (board && card) {
+      board.scrollTo({
+        left: card.offsetLeft - board.offsetLeft,
+        behavior: 'smooth'
+      });
+    }
+  } else {
+    focusedCompareIndex.value = index;
+    const board = compareBoardRef.value;
+    const card = compareCardRefs.value[index];
+    if (board && card) {
+      board.scrollTo({
+        left: card.offsetLeft - board.offsetLeft,
+        behavior: 'smooth'
+      });
+    }
+  }
+};
 
 // ================= [이미지 및 검색 유틸] =================
 const getHeroImage = (id) => id ? `${BASE_URL}/uploads/chars/${String(id).toUpperCase()}.jpg` : 'https://placehold.co/36?text=No+Img';
@@ -753,7 +821,6 @@ const getSkillSymbol = (skillCode) => {
 const filterBuffs = (buffsList, categoryType) => {
   if (!buffsList || !Array.isArray(buffsList)) return [];
 
-  // 1. 카테고리별 기본 필터링 (피해량 전용 코드 SDC01/SDC02 제외 여부는 기존 로직 유지)
   const filtered = buffsList.filter(b => {
     const isDebuff = b.effect_type === '디버프' || 
                      (b.effect_code && (b.effect_code.startsWith('SDB') || b.effect_code.startsWith('DOT') || b.effect_code.startsWith('CCC')));
@@ -768,7 +835,6 @@ const filterBuffs = (buffsList, categoryType) => {
     return false;
   });
 
-  // 2. 동일 효과(effect_code + effect_code_name) 기준 중첩(Stack) 그룹화 및 수치 합산
   const groupedMap = new Map();
 
   filtered.forEach(b => {
@@ -777,7 +843,6 @@ const filterBuffs = (buffsList, categoryType) => {
     const numVal = parseFloat(b.effect_value) || 0;
     const unit = b.unit || '%';
 
-    // DB 컬럼에 최대 중첩수(max_stack, stack_count, stack 등)가 명시되어 있는 경우 반영
     const explicitStack = parseInt(b.max_stack || b.stack_count || b.stack || 1, 10);
 
     if (!groupedMap.has(key)) {
@@ -795,7 +860,6 @@ const filterBuffs = (buffsList, categoryType) => {
       if (!existing.skill_symbols.includes(symbol)) {
         existing.skill_symbols.push(symbol);
       }
-      // 동일 효과가 여러 행(예: 치명타 + 액티브)으로 중복 존재하는 경우 합산
       existing.stack_count += (explicitStack > 1 ? explicitStack : 1);
       existing.total_value += (explicitStack > 1 ? numVal * explicitStack : numVal);
       if (!existing.duration && b.duration) {
@@ -804,7 +868,6 @@ const filterBuffs = (buffsList, categoryType) => {
     }
   });
 
-  // 3. 소수점 오차 정리 및 표시 문자열 포맷팅
   return Array.from(groupedMap.values()).map(item => {
     const roundedVal = Math.round(item.total_value * 100) / 100;
     return {
@@ -988,6 +1051,57 @@ onMounted(async () => {
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
 }
 
+/* ✅ 심플 버전: 밝은 배경에 맞춘 슬림 세그먼트 칩 바 */
+.quick-focus-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.focus-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.focus-chip-btn:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: #1e293b;
+}
+
+.focus-chip-btn.active {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #2563eb;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.focus-chip-img {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
 .horizontal-scroll-board {
   display: flex;
   flex-wrap: nowrap;
@@ -997,6 +1111,8 @@ onMounted(async () => {
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 6px;
+  /* 4, 5번째 카드도 클릭 시 맨 왼쪽 첫 번째 위치까지 올 수 있도록 우측 여백 확보 */
+  padding-right: calc((100% - 16px) * 2 / 3);
 }
 
 .horizontal-scroll-board::-webkit-scrollbar {
@@ -1023,6 +1139,13 @@ onMounted(async () => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ✅ 현재 선택(중점)된 카드 테두리 강조 */
+.hero-card-column.is-focused {
+  border: 1.5px solid #3b82f6 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
 }
 
 .section-title-bar h3 {
@@ -1407,6 +1530,7 @@ onMounted(async () => {
   .horizontal-scroll-board {
     scroll-snap-type: x mandatory;
     gap: 12px;
+    padding-right: 0;
   }
 
   .hero-card-column {
