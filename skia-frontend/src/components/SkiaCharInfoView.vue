@@ -120,12 +120,12 @@
                   <div class="fit-row">
                     <div class="fit-left">
                       <span class="slim-label-box">일반</span>
-                      <span class="buff-name text-truncate">
+                      <span class="uniform-text text-truncate">
                         {{ getHeroDetailByCode(code).normal_damage_name || '공격력피해량' }}
                       </span>
                     </div>
                     <div class="fit-right">
-                      <span class="buff-val text-yellow">
+                      <span class="uniform-val text-yellow">
                         {{ getHeroDetailByCode(code).normal_damage }}
                       </span>
                     </div>
@@ -137,17 +137,17 @@
                   <div class="fit-row">
                     <div class="fit-left">
                       <span class="slim-label-box label-crit">치명타</span>
-                      <span class="buff-name text-truncate">
+                      <span class="uniform-text text-truncate">
                         {{ getHeroDetailByCode(code).critSdc02_damage_name || '치명타피해량' }}
                       </span>
                     </div>
                     <div class="fit-right">
-                      <span class="buff-val text-yellow">
+                      <span class="uniform-val text-yellow">
                         {{ getHeroDetailByCode(code).critSdc02_value }}
                       </span>
                       <span 
                         v-if="getHeroDetailByCode(code).critSdc02_damage && getHeroDetailByCode(code).critSdc02_damage !== '0%' && getHeroDetailByCode(code).critSdc02_damage !== '-'" 
-                        class="buff-max-badge-sm"
+                        class="uniform-badge-sm"
                       >
                         MAX {{ getHeroDetailByCode(code).critSdc02_damage }}
                       </span>
@@ -160,12 +160,12 @@
                   <div class="fit-row">
                     <div class="fit-left">
                       <span class="slim-label-box label-active">액티브</span>
-                      <span class="buff-name text-truncate">{{ getHeroDetailByCode(code).activeSdc01_skill_name || '공격력피해량' }}</span>
+                      <span class="uniform-text text-truncate">{{ getHeroDetailByCode(code).activeSdc01_skill_name || '공격력피해량' }}</span>
                     </div>
                     <div class="fit-right">
-                      <span class="buff-val text-red-main">{{ getHeroDetailByCode(code).activeSdc01_effect_value }}</span>
+                      <span class="uniform-val text-red-main">{{ getHeroDetailByCode(code).activeSdc01_effect_value }}</span>
                       <template v-if="getHeroDetailByCode(code).activeSdc01_damage && getHeroDetailByCode(code).activeSdc01_damage !== '-' && getHeroDetailByCode(code).activeSdc01_damage !== getHeroDetailByCode(code).activeSdc01_effect_value">
-                        <span class="buff-max-badge-sm">
+                        <span class="uniform-badge-sm">
                           MAX {{ getHeroDetailByCode(code).activeSdc01_damage }}
                         </span>
                       </template>
@@ -180,23 +180,31 @@
               </div>
             </div>
 
-            <!-- 버프/디버프 목록 -->
+            <!-- 버프/디버프 목록 (중첩 계산 및 기호 표시) -->
             <div class="hero-buff-list-box mt-2">                
               <div v-if="getHeroDetailByCode(code).buffs && getHeroDetailByCode(code).buffs.length > 0" class="buff-category-wrapper">
                 <!-- 자신 버프 -->
                 <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'SELF_BUFF').length > 0" class="effect-group-box self-group">
                   <div class="group-header-label text-self">👤 자신 버프</div>
                   <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'SELF_BUFF')" :key="b.buff_seq" class="buff-item-card card-self compact-buff-item">
+                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'SELF_BUFF')" :key="b.group_key" class="buff-item-card card-self compact-buff-item">
                       <div class="buff-item-left">
-                        <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
-                          {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                        <span 
+                          v-for="sym in b.skill_symbols" 
+                          :key="sym" 
+                          class="skill-type-badge" 
+                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                        >
+                          {{ sym }}
                         </span>
-                        <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span v-if="b.stack_count > 1" class="stack-count-badge">
+                          {{ b.stack_count }}중첩
+                        </span>
                       </div>
                       <div class="buff-item-right">
-                        <span class="buff-val-sm">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                        <span v-if="b.duration" class="sub-info-sm">지속: {{ b.duration }}s</span>
+                        <span class="uniform-val">{{ b.total_display_value }}</span>
+                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
@@ -206,15 +214,24 @@
                 <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'TEAM_BUFF').length > 0" class="effect-group-box team-group">
                   <div class="group-header-label text-team">🛡️ 아군 버프</div>
                   <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'TEAM_BUFF')" :key="b.buff_seq" class="buff-item-card card-team compact-buff-item">
+                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'TEAM_BUFF')" :key="b.group_key" class="buff-item-card card-team compact-buff-item">
                       <div class="buff-item-left">
-                        <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
-                          {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                        <span 
+                          v-for="sym in b.skill_symbols" 
+                          :key="sym" 
+                          class="skill-type-badge" 
+                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                        >
+                          {{ sym }}
                         </span>
-                        <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span v-if="b.stack_count > 1" class="stack-count-badge">
+                          {{ b.stack_count }}중첩
+                        </span>
                       </div>
                       <div class="buff-item-right">
-                        <span class="buff-val-sm text-green">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                        <span class="uniform-val text-green">{{ b.total_display_value }}</span>
+                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
@@ -224,15 +241,24 @@
                 <div v-if="filterBuffs(getHeroDetailByCode(code).buffs, 'DEBUFF').length > 0" class="effect-group-box debuff-group">
                   <div class="group-header-label text-debuff">⚔️ 적군 디버프</div>
                   <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'DEBUFF')" :key="b.buff_seq" class="buff-item-card card-debuff compact-buff-item">
+                    <div v-for="b in filterBuffs(getHeroDetailByCode(code).buffs, 'DEBUFF')" :key="b.group_key" class="buff-item-card card-debuff compact-buff-item">
                       <div class="buff-item-left">
-                        <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
-                          {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                        <span 
+                          v-for="sym in b.skill_symbols" 
+                          :key="sym" 
+                          class="skill-type-badge" 
+                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                        >
+                          {{ sym }}
                         </span>
-                        <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span v-if="b.stack_count > 1" class="stack-count-badge">
+                          {{ b.stack_count }}중첩
+                        </span>
                       </div>
                       <div class="buff-item-right">
-                        <span class="buff-val-sm text-red">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                        <span class="uniform-val text-red">{{ b.total_display_value }}</span>
+                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
@@ -385,12 +411,12 @@
                   <div class="fit-row">
                     <div class="fit-left">
                       <span class="slim-label-box">일반</span>
-                      <span class="buff-name text-truncate">
+                      <span class="uniform-text text-truncate">
                         {{ compareHeroDetails[index - 1].normal_damage_name || '공격력피해량' }}
                       </span>
                     </div>
                     <div class="fit-right">
-                      <span class="buff-val text-yellow">{{ compareHeroDetails[index - 1].normal_damage }}</span>
+                      <span class="uniform-val text-yellow">{{ compareHeroDetails[index - 1].normal_damage }}</span>
                     </div>
                   </div>
                 </div>
@@ -399,15 +425,15 @@
                   <div class="fit-row">
                     <div class="fit-left">
                       <span class="slim-label-box label-crit">치명타</span>
-                      <span class="buff-name text-truncate">
+                      <span class="uniform-text text-truncate">
                         {{ compareHeroDetails[index - 1].critSdc02_damage_name || '치명타피해량' }}
                       </span>
                     </div>
                     <div class="fit-right">
-                      <span class="buff-val text-yellow">{{ compareHeroDetails[index - 1].critSdc02_value }}</span>
+                      <span class="uniform-val text-yellow">{{ compareHeroDetails[index - 1].critSdc02_value }}</span>
                       <span 
                         v-if="compareHeroDetails[index - 1].critSdc02_damage && compareHeroDetails[index - 1].critSdc02_damage !== '0%' && compareHeroDetails[index - 1].critSdc02_damage !== '-'" 
-                        class="buff-max-badge-sm"
+                        class="uniform-badge-sm"
                       >
                         MAX {{ compareHeroDetails[index - 1].critSdc02_damage }}
                       </span>
@@ -419,12 +445,12 @@
                   <div class="fit-row">
                     <div class="fit-left">
                       <span class="slim-label-box label-active">액티브</span>
-                      <span class="buff-name text-truncate">{{ compareHeroDetails[index - 1].activeSdc01_skill_name || '공격력피해량' }}</span>
+                      <span class="uniform-text text-truncate">{{ compareHeroDetails[index - 1].activeSdc01_skill_name || '공격력피해량' }}</span>
                     </div>
                     <div class="fit-right">
-                      <span class="buff-val text-red-main">{{ compareHeroDetails[index - 1].activeSdc01_effect_value }}</span>
+                      <span class="uniform-val text-red-main">{{ compareHeroDetails[index - 1].activeSdc01_effect_value }}</span>
                       <template v-if="compareHeroDetails[index - 1].activeSdc01_damage && compareHeroDetails[index - 1].activeSdc01_damage !== '-' && compareHeroDetails[index - 1].activeSdc01_damage !== compareHeroDetails[index - 1].activeSdc01_effect_value">
-                        <span class="buff-max-badge-sm">
+                        <span class="uniform-badge-sm">
                           MAX {{ compareHeroDetails[index - 1].activeSdc01_damage }}
                         </span>
                       </template>
@@ -439,23 +465,31 @@
               </div>
             </div>
 
-            <!-- 버프/디버프 목록 -->
+            <!-- 버프/디버프 목록 (중첩 계산 및 기호 표시) -->
             <div class="hero-buff-list-box mt-2">
               <div v-if="compareHeroDetails[index - 1].buffs && compareHeroDetails[index - 1].buffs.length > 0" class="buff-category-wrapper">
                 <!-- 1. 자신 버프 -->
                 <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'SELF_BUFF').length > 0" class="effect-group-box self-group">
                   <div class="group-header-label text-self">👤 자신 버프</div>
                   <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'SELF_BUFF')" :key="b.buff_seq" class="buff-item-card card-self compact-buff-item">
+                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'SELF_BUFF')" :key="b.group_key" class="buff-item-card card-self compact-buff-item">
                       <div class="buff-item-left">
-                        <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
-                          {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                        <span 
+                          v-for="sym in b.skill_symbols" 
+                          :key="sym" 
+                          class="skill-type-badge" 
+                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                        >
+                          {{ sym }}
                         </span>
-                        <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span v-if="b.stack_count > 1" class="stack-count-badge">
+                          {{ b.stack_count }}중첩
+                        </span>
                       </div>
                       <div class="buff-item-right">
-                        <span class="buff-val-sm">{{ b.effect_value }}{{ b.unit || '%' }}</span>
-                        <span v-if="b.duration" class="sub-info-sm">지속: {{ b.duration }}s</span>
+                        <span class="uniform-val">{{ b.total_display_value }}</span>
+                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
@@ -465,15 +499,24 @@
                 <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'TEAM_BUFF').length > 0" class="effect-group-box team-group">
                   <div class="group-header-label text-team">🛡️ 아군 버프</div>
                   <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'TEAM_BUFF')" :key="b.buff_seq" class="buff-item-card card-team compact-buff-item">
+                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'TEAM_BUFF')" :key="b.group_key" class="buff-item-card card-team compact-buff-item">
                       <div class="buff-item-left">
-                        <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
-                          {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                        <span 
+                          v-for="sym in b.skill_symbols" 
+                          :key="sym" 
+                          class="skill-type-badge" 
+                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                        >
+                          {{ sym }}
                         </span>
-                        <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span v-if="b.stack_count > 1" class="stack-count-badge">
+                          {{ b.stack_count }}중첩
+                        </span>
                       </div>
                       <div class="buff-item-right">
-                        <span class="buff-val-sm text-green">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                        <span class="uniform-val text-green">{{ b.total_display_value }}</span>
+                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
@@ -483,15 +526,24 @@
                 <div v-if="filterBuffs(compareHeroDetails[index - 1].buffs, 'DEBUFF').length > 0" class="effect-group-box debuff-group">
                   <div class="group-header-label text-debuff">⚔️ 적군 디버프</div>
                   <div class="buff-card-list">
-                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'DEBUFF')" :key="b.buff_seq" class="buff-item-card card-debuff compact-buff-item">
+                    <div v-for="b in filterBuffs(compareHeroDetails[index - 1].buffs, 'DEBUFF')" :key="b.group_key" class="buff-item-card card-debuff compact-buff-item">
                       <div class="buff-item-left">
-                        <span class="skill-type-badge" :class="b.skill_code === 'SKI02' ? 'badge-crit' : b.skill_code === 'SKI01' ? 'badge-normal' : 'badge-active'">
-                          {{ b.skill_code === 'SKI02' ? 'C' : b.skill_code === 'SKI01' ? 'N' : 'A' }}
+                        <span 
+                          v-for="sym in b.skill_symbols" 
+                          :key="sym" 
+                          class="skill-type-badge" 
+                          :class="sym === 'C' ? 'badge-crit' : sym === 'N' ? 'badge-normal' : 'badge-active'"
+                        >
+                          {{ sym }}
                         </span>
-                        <span class="buff-name text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span class="uniform-text text-truncate" :title="b.effect_code_name">{{ b.effect_code_name }}</span>
+                        <span v-if="b.stack_count > 1" class="stack-count-badge">
+                          {{ b.stack_count }}중첩
+                        </span>
                       </div>
                       <div class="buff-item-right">
-                        <span class="buff-val-sm text-red">{{ b.effect_value }}{{ b.unit || '%' }}</span>
+                        <span class="uniform-val text-red">{{ b.total_display_value }}</span>
+                        <span v-if="b.duration" class="uniform-sub-sm">({{ b.duration }}s)</span>
                       </div>
                     </div>
                   </div>
@@ -519,7 +571,6 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 const activeDetailTab = ref('new');
 const targetDeckCodes = ref([]);
 
-// 최신 등록 캐릭터 5개(char_id) 조회 함수
 const fetchRecentCharCodes = async () => {
   try {
     const res = await axios.get(`${BASE_URL}/api/chars/recent`);
@@ -691,11 +742,19 @@ const onCompareHeroSelect = async (slotIndex, charId) => {
   }
 };
 
-// ================= [버프 분류 및 미니 전장판 사거리 계산] =================
+// ================= [버프 분류 및 중첩 계산 로직] =================
+const getSkillSymbol = (skillCode) => {
+  const code = String(skillCode || '').trim().toUpperCase();
+  if (code === 'SKI02') return 'C';
+  if (code === 'SKI01') return 'N';
+  return 'A';
+};
+
 const filterBuffs = (buffsList, categoryType) => {
   if (!buffsList || !Array.isArray(buffsList)) return [];
 
-  return buffsList.filter(b => {
+  // 1. 카테고리별 기본 필터링 (피해량 전용 코드 SDC01/SDC02 제외 여부는 기존 로직 유지)
+  const filtered = buffsList.filter(b => {
     const isDebuff = b.effect_type === '디버프' || 
                      (b.effect_code && (b.effect_code.startsWith('SDB') || b.effect_code.startsWith('DOT') || b.effect_code.startsWith('CCC')));
     
@@ -708,8 +767,54 @@ const filterBuffs = (buffsList, categoryType) => {
     if (categoryType === 'TEAM_BUFF') return isTeam;
     return false;
   });
+
+  // 2. 동일 효과(effect_code + effect_code_name) 기준 중첩(Stack) 그룹화 및 수치 합산
+  const groupedMap = new Map();
+
+  filtered.forEach(b => {
+    const key = `${b.effect_code || ''}_${b.effect_code_name || ''}`;
+    const symbol = getSkillSymbol(b.skill_code);
+    const numVal = parseFloat(b.effect_value) || 0;
+    const unit = b.unit || '%';
+
+    // DB 컬럼에 최대 중첩수(max_stack, stack_count, stack 등)가 명시되어 있는 경우 반영
+    const explicitStack = parseInt(b.max_stack || b.stack_count || b.stack || 1, 10);
+
+    if (!groupedMap.has(key)) {
+      groupedMap.set(key, {
+        ...b,
+        group_key: key,
+        skill_symbols: [symbol],
+        stack_count: explicitStack > 1 ? explicitStack : 1,
+        total_value: explicitStack > 1 ? numVal * explicitStack : numVal,
+        unit,
+        duration: b.duration || null
+      });
+    } else {
+      const existing = groupedMap.get(key);
+      if (!existing.skill_symbols.includes(symbol)) {
+        existing.skill_symbols.push(symbol);
+      }
+      // 동일 효과가 여러 행(예: 치명타 + 액티브)으로 중복 존재하는 경우 합산
+      existing.stack_count += (explicitStack > 1 ? explicitStack : 1);
+      existing.total_value += (explicitStack > 1 ? numVal * explicitStack : numVal);
+      if (!existing.duration && b.duration) {
+        existing.duration = b.duration;
+      }
+    }
+  });
+
+  // 3. 소수점 오차 정리 및 표시 문자열 포맷팅
+  return Array.from(groupedMap.values()).map(item => {
+    const roundedVal = Math.round(item.total_value * 100) / 100;
+    return {
+      ...item,
+      total_display_value: `${roundedVal}${item.unit}`
+    };
+  });
 };
 
+// ================= [미니 전장판 사거리 계산] =================
 const getMiniRangeData = (heroDetail) => {
   if (!heroDetail) return null;
 
@@ -853,6 +958,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
 }
 
 .main-tab-bar {
@@ -882,7 +988,6 @@ onMounted(async () => {
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
 }
 
-/* ✅ 5종 가로 스크롤 보드 (기본 3개 폭 유지 + 넘치면 가로 스크롤) */
 .horizontal-scroll-board {
   display: flex;
   flex-wrap: nowrap;
@@ -914,7 +1019,7 @@ onMounted(async () => {
 
 .hero-card-column {
   flex: 0 0 calc((100% - 16px) / 3);
-  min-width: 280px;
+  min-width: 310px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -927,6 +1032,83 @@ onMounted(async () => {
   text-overflow: ellipsis;
 }
 
+/* ✅ 통일된 폰트 크기 및 스타일 (일반/치명타/액티브/버프/디버프 모두 동일) */
+.uniform-text {
+  font-size: 0.8rem !important;
+  font-weight: 500;
+  color: #f1f5f9;
+  line-height: 1.2;
+}
+
+.uniform-val {
+  font-size: 0.8rem !important;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.uniform-badge-sm {
+  background: #334155;
+  color: #f59e0b;
+  font-size: 0.72rem !important;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.uniform-sub-sm {
+  font-size: 0.72rem !important;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* ✅ 스킬 기호 배지 (N / C / A) 명확한 스타일 정의 */
+.skill-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 0.72rem !important;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.badge-normal {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #475569;
+}
+
+.badge-crit {
+  background: rgba(37, 99, 235, 0.25);
+  color: #60a5fa;
+  border: 1px solid #3b82f6;
+}
+
+.badge-active {
+  background: rgba(220, 38, 38, 0.25);
+  color: #f87171;
+  border: 1px solid #ef4444;
+}
+
+/* ✅ 중첩 표시 뱃지 */
+.stack-count-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  font-size: 0.72rem !important;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 미니 전장판 */
 .mini-battlefield-wrapper {
   width: 100%;
   border-radius: 6px;
@@ -971,13 +1153,7 @@ onMounted(async () => {
   border-color: rgba(51, 65, 85, 0.5);
 }
 
-.center-placed-hero {
-  grid-column: 3;
-  grid-row: 3;
-  justify-self: center;
-  align-self: center;
-}
-
+.center-placed-hero,
 .center-placed-boss {
   grid-column: 3;
   grid-row: 3;
@@ -1029,6 +1205,7 @@ onMounted(async () => {
   z-index: 3;
 }
 
+/* 자동완성 검색바 */
 .search-autocomplete-bar {
   position: relative;
   padding: 4px !important;
@@ -1119,16 +1296,17 @@ onMounted(async () => {
 }
 
 .mini-hero-name {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: bold;
   color: #f8fafc;
 }
 
 .mini-hero-id {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: #60a5fa;
 }
 
+/* 스킬 및 버프 카드 레이아웃 */
 .fit-card {
   padding: 2px 2px !important;
   display: contents;
@@ -1169,7 +1347,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: bold;
   color: #94a3b8;
   flex-shrink: 0;
@@ -1185,21 +1363,6 @@ onMounted(async () => {
   border-color: #dc2626;
 }
 
-.buff-val {
-  font-size: 0.85rem;
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.buff-max-badge-sm {
-  background: #334155;
-  color: #f59e0b;
-  font-size: 0.63rem;
-  padding: 1px 3px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
 .fit-meta {
   margin-top: 2px;
   gap: 4px !important;
@@ -1207,7 +1370,7 @@ onMounted(async () => {
 }
 
 .compact-buff-item {
-  padding: 4px 6px !important;
+  padding: 5px 6px !important;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1216,7 +1379,7 @@ onMounted(async () => {
 .compact-buff-item .buff-item-left {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
   flex: 1;
 }
@@ -1224,20 +1387,8 @@ onMounted(async () => {
 .compact-buff-item .buff-item-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
-}
-
-.buff-val-sm {
-  font-size: 0.78rem;
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.sub-info-sm {
-  font-size: 0.68rem;
-  color: #94a3b8;
-  white-space: nowrap;
 }
 
 .select-placeholder {
@@ -1251,27 +1402,7 @@ onMounted(async () => {
   line-height: 1.4;
 }
 
-/* 기존 PC 기본 스타일 유지 */
-.horizontal-scroll-board {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  width: 100%;
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 6px;
-}
-
-.hero-card-column {
-  flex: 0 0 calc((100% - 16px) / 3);
-  min-width: 310px; /* PC에서도 최소 폭 310px 확보 */
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ✅ [추가] 모바일 화면(768px 이하) 최적화: 카드 1장씩 꽉 차게 + 스냅 스크롤 */
+/* 모바일 화면 최적화 */
 @media (max-width: 768px) {
   .horizontal-scroll-board {
     scroll-snap-type: x mandatory;
@@ -1279,12 +1410,11 @@ onMounted(async () => {
   }
 
   .hero-card-column {
-    flex: 0 0 100%;       /* 한 화면에 카드 1개 100% 꽉 차게 표시 */
+    flex: 0 0 100%;
     min-width: 100%;
     scroll-snap-align: start;
   }
 
-  /* 모바일에서 수치/MAX/지속시간이 겹치거나 잘리지 않도록 미세 조정 */
   .main-tab-btn {
     font-size: 0.8rem;
     padding: 8px 6px;
@@ -1292,24 +1422,7 @@ onMounted(async () => {
 
   .slim-label-box {
     width: 38px;
-    font-size: 0.68rem;
-  }
-
-  .buff-name {
-    font-size: 0.78rem;
-  }
-
-  .buff-val {
-    font-size: 0.8rem;
-  }
-
-  .buff-max-badge-sm {
-    font-size: 0.6rem;
-    padding: 1px 3px;
-  }
-
-  .sub-info-sm {
-    font-size: 0.64rem;
+    font-size: 0.7rem;
   }
 }
 </style>
