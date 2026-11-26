@@ -192,7 +192,7 @@
               </div>
 
               <!-- ⚡ 풀버프 환산치 요약 카드 (차분한 단색 & 일의 자리 세로 정렬) -->
-              <div class="calc-score-box mt-2">
+              <!--div class="calc-score-box mt-2">
                 <div class="calc-header-label">테스트 예상수치 (30초)</div>
                 <div class="calc-grid-row">
                   <span class="calc-row-tag">일반</span>
@@ -218,7 +218,7 @@
                     <span class="calc-val-num">{{ getHeroConvertedStats(getHeroDetailByCode(code)).cdCritScore }}</span>
                   </div>
                 </div>
-              </div>
+              </div-->
 
               <!-- 버프/디버프 목록 (중첩 계산 및 기호 표시) -->
               <div class="hero-buff-list-box mt-2">                
@@ -969,8 +969,7 @@ const filterBuffs = (buffsList, categoryType) => {
   return [...mergedPercentItems, ...separateItems];
 };
 
-// ================= [30초 타임라인 기반 풀버프 환산치 (즉발형/지속형 구분 반영)] =================
-// ================= [30초 타임라인 기반 풀버프 환산치 (본인 자신/아군 버프 쿨감 반영)] =================
+// ================= [30초 타임라인 기반 예상수치 (조건부 중첩 제외 · 기본 발동 기준)] =================
 const getHeroConvertedStats = (heroDetail) => {
   if (!heroDetail) {
     return {
@@ -1008,14 +1007,22 @@ const getHeroConvertedStats = (heroDetail) => {
   const teamBuffs = filterBuffs(heroDetail.buffs, 'TEAM_BUFF');
   const debuffs = filterBuffs(heroDetail.buffs, 'DEBUFF');
 
-  const selfAndTeamBuffs = [...selfBuffs, ...teamBuffs]; // 쿨감 추출용 (본인 자신 버프 + 아군 버프)
+  const selfAndTeamBuffs = [...selfBuffs, ...teamBuffs]; // 쿨감 추출용 (본인 자신/아군 버프)
   const allEffects = [...selfBuffs, ...teamBuffs, ...debuffs]; // 피해 배율 계산용
 
-  // 4. 본인 보유 [자신/아군] 쿨타임 감소 수치 추출
-  let actCdPct = 0;    // % 단위 쿨감 (쿨회복 속도 증가)
+  // 4. 조건 없는 기본 1중첩 값만 추출하는 헬퍼 (다중첩 조건 제외)
+  const getUnconditionalValue = (item) => {
+    if ((item.stack_count || 1) > 1 && item.base_value !== undefined) {
+      return Number(item.base_value) || 0;
+    }
+    return Number(item.total_value) || 0;
+  };
+
+  // 5. 본인 보유 [자신/아군] 쿨타임 감소 수치 추출
+  let actCdPct = 0;    // % 단위 쿨감
   let actCdPctDur = 0; // % 단위 쿨감 지속시간(초)
-  let critCdSec = 0;   // C(치명타) 또는 N(일반) 발동 시 감소하는 초 단위 쿨감
-  let actCdSec = 0;    // A(액티브) 발동 시 감소하는 초 단위 쿨감
+  let critCdSec = 0;   // C/N 발동 시 초 단위 쿨감
+  let actCdSec = 0;    // A 발동 시 초 단위 쿨감
 
   selfAndTeamBuffs.forEach(item => {
     const name = String(item.effect_code_name || '');
@@ -1024,7 +1031,7 @@ const getHeroConvertedStats = (heroDetail) => {
 
     if (name.includes('쿨타임 감소') || name.includes('쿨타임 회복')) {
       if (unit === '%') {
-        actCdPct += (item.total_value || 0);
+        actCdPct += getUnconditionalValue(item);
         const dur = item.duration ? parseFloat(item.duration) : TOTAL_SEC;
         actCdPctDur = Math.max(actCdPctDur, dur);
       } else if (unit === '초') {
@@ -1035,8 +1042,8 @@ const getHeroConvertedStats = (heroDetail) => {
     }
   });
 
-  // 5. 버프별 지속시간(duration) 가동률 반영 평균 배율
-  const calcBuffMultiplierForCycle = (actCount, critCount) => {
+  // 6. 버프별 지속시간(duration) 가동률 반영 평균 배율 (조건부 중첩 제외)
+  const calcBuffMultiplierForCycle = (actCount, critCount, isCritSkill = false) => {
     let effFinalAtk = 0;
     let effFinalCritDmg = 0;
     let effFinalExtraDmg = 0;
@@ -1047,7 +1054,7 @@ const getHeroConvertedStats = (heroDetail) => {
       if (unit !== '%') return;
 
       const name = String(item.effect_code_name || '');
-      const val = item.total_value || 0;
+      const val = getUnconditionalValue(item); // 조건부 다중첩 배제, 1중첩 기본치만 적용
       const dur = item.duration ? parseFloat(item.duration) : TOTAL_SEC;
       const syms = item.skill_symbols || [];
 
@@ -1073,28 +1080,29 @@ const getHeroConvertedStats = (heroDetail) => {
     });
 
     const atkMult = 1 + effFinalAtk / 100;
-    const critDmgMult = 1 + effFinalCritDmg / 100;
+    const critDmgMult = isCritSkill ? (1 + effFinalCritDmg / 100) : 1;
     const extraDmgMult = 1 + effFinalExtraDmg / 100;
     const bonusMult = 1 + effBonusDmg / 100;
 
     return atkMult * critDmgMult * extraDmgMult * bonusMult;
   };
 
-  // 6. [일반 사이클] 쿨감 미적용
-  const baseBuffMult = calcBuffMultiplierForCycle(baseActCount, baseCritCount);
-  const baseActiveTotal = Math.round(baseActive * baseBuffMult * baseActCount);
-  const baseCritTotal = Math.round(baseCrit * baseBuffMult * baseCritCount);
+  // 7. [일반 사이클] 쿨감 미적용
+  const baseActMult = calcBuffMultiplierForCycle(baseActCount, baseCritCount, false);
+  const baseCritMult = calcBuffMultiplierForCycle(baseActCount, baseCritCount, true);
+  const baseActiveTotal = Math.round(baseActive * baseActMult * baseActCount);
+  const baseCritTotal = Math.round(baseCrit * baseCritMult * baseCritCount);
 
-  // 7. [쿨감 적용 사이클] 0.5초 단위 타임라인 시뮬레이션 (0초 시작 즉시 발동 기준)
+  // 8. [쿨감 적용 사이클] 0.5초 단위 타임라인 시뮬레이션 (0초 시작 즉시 발동 기준)
   const dt = 0.5;
   let t = 0;
-  let cdRem = 0;       // 0초 전투 시작 시 쿨타임 100% 충전 상태
+  let cdRem = 0;
   let actActiveRem = 0;
   let pctBuffRem = 0;
   let critElapsed = 0;
   let cdActCount = 0;
 
-  // 0초 시점 첫 액티브 발동 처리
+  // 0초 전투 시작 시 첫 액티브 발동
   cdActCount += 1;
   actActiveRem = actDurationSec;
   cdRem = Math.max(0, baseActCdSec - actCdSec);
@@ -1137,9 +1145,10 @@ const getHeroConvertedStats = (heroDetail) => {
   const finalActCount = hasAnyCd ? cdActCount : baseActCount;
   const finalCritCount = baseCritCount;
 
-  const cdBuffMult = calcBuffMultiplierForCycle(finalActCount, finalCritCount);
-  const cdActiveTotal = Math.round(baseActive * cdBuffMult * finalActCount);
-  const cdCritTotal = Math.round(baseCrit * cdBuffMult * finalCritCount);
+  const cdActMult = calcBuffMultiplierForCycle(finalActCount, finalCritCount, false);
+  const cdCritMult = calcBuffMultiplierForCycle(finalActCount, finalCritCount, true);
+  const cdActiveTotal = Math.round(baseActive * cdActMult * finalActCount);
+  const cdCritTotal = Math.round(baseCrit * cdCritMult * finalCritCount);
 
   const fmt = (n) => (n > 0 ? `${n.toLocaleString()}%` : '0%');
 
