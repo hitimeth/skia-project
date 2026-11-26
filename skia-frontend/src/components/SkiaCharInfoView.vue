@@ -802,12 +802,13 @@ const formatHeroDetailData = (rawData, batchData = null) => {
   const mergedSkills = (batchData && batchData.skills) ? batchData.skills : (rawData.skills || {});
   const mergedColor = (batchData && batchData.color) ? batchData.color : rawData.color;
 
+  // 10초 미만의 짧은 변신/유지형 스킬만 시전 지연시간으로 인정 (|| activeSkillBase 제거)
   const actDurRow = rawBuffs.find(b =>
     String(b.skill_code || '').trim().toUpperCase() === 'SKI03' &&
     Number(b.duration) > 0 &&
     Number(b.duration) < 10
-  ) || activeSkillBase;
-  const activeDuration = (actDurRow && Number(actDurRow.duration) > 0) ? Number(actDurRow.duration) : 0;
+  );
+  const activeDuration = actDurRow ? Number(actDurRow.duration) : 0;
 
   return {
     ...rawData,
@@ -894,8 +895,8 @@ const filterBuffs = (buffsList, categoryType) => {
                      (b.effect_code && (b.effect_code.startsWith('SDB') || b.effect_code.startsWith('DOT') || b.effect_code.startsWith('CCC')));
     
     const target = String(b.target_type || b.target_code || '');
-    const isTeam = (target.includes('아군') || target === 'TGT02') && !isDebuff;
-    const isSelf = (target.includes('자신') || target === 'TGT01' || target === 'TPC02' || target === 'TGT03' || target === 'TGT04') && !isDebuff && !isTeam;
+    const isTeam = (target.includes('아군') || target === 'TGT02' || target === 'TGT05') && !isDebuff;
+    const isSelf = !isDebuff && !isTeam;
 
     if (categoryType === 'DEBUFF') return isDebuff;
     if (categoryType === 'SELF_BUFF') return isSelf;
@@ -969,6 +970,7 @@ const filterBuffs = (buffsList, categoryType) => {
 };
 
 // ================= [30초 타임라인 기반 풀버프 환산치 (즉발형/지속형 구분 반영)] =================
+// ================= [30초 타임라인 기반 풀버프 환산치 (본인 자신/아군 버프 쿨감 반영)] =================
 const getHeroConvertedStats = (heroDetail) => {
   if (!heroDetail) {
     return {
@@ -987,47 +989,53 @@ const getHeroConvertedStats = (heroDetail) => {
 
   const TOTAL_SEC = 30;
 
+  // 1. 치명타 지속시간, 액티브 쿨타임, 액티브 지속시간
   const rawCritDur = parseNum(heroDetail.critSdc02_duration);
   const critDurationSec = rawCritDur > 0 ? rawCritDur : 2;
   const baseCritCount = TOTAL_SEC / critDurationSec;
 
   const rawActCd = parseNum(heroDetail.activeSdc01_cooldown);
   const baseActCdSec = rawActCd > 0 ? rawActCd : 10;
-  const baseActCount = TOTAL_SEC / baseActCdSec;
-
   const actDurationSec = parseNum(heroDetail.activeSdc01_duration);
+  const baseActCount = TOTAL_SEC / (baseActCdSec + actDurationSec);
 
+  // 2. 기본 스킬 계수
   const baseActive = parseNum(heroDetail.activeSdc01_effect_value);
   const baseCrit = parseNum(heroDetail.critSdc02_value);
 
+  // 3. 버프/디버프 분류
   const selfBuffs = filterBuffs(heroDetail.buffs, 'SELF_BUFF');
   const teamBuffs = filterBuffs(heroDetail.buffs, 'TEAM_BUFF');
   const debuffs = filterBuffs(heroDetail.buffs, 'DEBUFF');
-  const allEffects = [...selfBuffs, ...teamBuffs, ...debuffs];
 
-  let actCdPct = 0;
-  let actCdPctDur = 0;
-  let critCdSec = 0;
-  let actCdSec = 0;
+  const selfAndTeamBuffs = [...selfBuffs, ...teamBuffs]; // 쿨감 추출용 (본인 자신 버프 + 아군 버프)
+  const allEffects = [...selfBuffs, ...teamBuffs, ...debuffs]; // 피해 배율 계산용
 
-  allEffects.forEach(item => {
+  // 4. 본인 보유 [자신/아군] 쿨타임 감소 수치 추출
+  let actCdPct = 0;    // % 단위 쿨감 (쿨회복 속도 증가)
+  let actCdPctDur = 0; // % 단위 쿨감 지속시간(초)
+  let critCdSec = 0;   // C(치명타) 또는 N(일반) 발동 시 감소하는 초 단위 쿨감
+  let actCdSec = 0;    // A(액티브) 발동 시 감소하는 초 단위 쿨감
+
+  selfAndTeamBuffs.forEach(item => {
     const name = String(item.effect_code_name || '');
     const unit = (item.unit || '%').trim();
     const syms = item.skill_symbols || [];
 
-    if (name.includes('쿨타임 감소')) {
+    if (name.includes('쿨타임 감소') || name.includes('쿨타임 회복')) {
       if (unit === '%') {
         actCdPct += (item.total_value || 0);
         const dur = item.duration ? parseFloat(item.duration) : TOTAL_SEC;
         actCdPctDur = Math.max(actCdPctDur, dur);
       } else if (unit === '초') {
         const sec = parseNum(item.effect_value || item.total_display_value);
-        if (syms.includes('C')) critCdSec += sec;
+        if (syms.includes('C') || syms.includes('N')) critCdSec += sec;
         if (syms.includes('A')) actCdSec += sec;
       }
     }
   });
 
+  // 5. 버프별 지속시간(duration) 가동률 반영 평균 배율
   const calcBuffMultiplierForCycle = (actCount, critCount) => {
     let effFinalAtk = 0;
     let effFinalCritDmg = 0;
@@ -1072,21 +1080,32 @@ const getHeroConvertedStats = (heroDetail) => {
     return atkMult * critDmgMult * extraDmgMult * bonusMult;
   };
 
+  // 6. [일반 사이클] 쿨감 미적용
   const baseBuffMult = calcBuffMultiplierForCycle(baseActCount, baseCritCount);
   const baseActiveTotal = Math.round(baseActive * baseBuffMult * baseActCount);
   const baseCritTotal = Math.round(baseCrit * baseBuffMult * baseCritCount);
 
+  // 7. [쿨감 적용 사이클] 0.5초 단위 타임라인 시뮬레이션 (0초 시작 즉시 발동 기준)
   const dt = 0.5;
   let t = 0;
-  let cdRem = baseActCdSec;
+  let cdRem = 0;       // 0초 전투 시작 시 쿨타임 100% 충전 상태
   let actActiveRem = 0;
   let pctBuffRem = 0;
   let critElapsed = 0;
   let cdActCount = 0;
 
+  // 0초 시점 첫 액티브 발동 처리
+  cdActCount += 1;
+  actActiveRem = actDurationSec;
+  cdRem = Math.max(0, baseActCdSec - actCdSec);
+  if (actCdPct > 0) {
+    pctBuffRem = actCdPctDur > 0 ? actCdPctDur : TOTAL_SEC;
+  }
+
   while (t < TOTAL_SEC - 1e-9) {
     if (actActiveRem <= 0) {
-      const speed = 1 + (pctBuffRem > 0 ? actCdPct / 100 : 0);
+      const effectiveRatio = pctBuffRem > 0 ? Math.max(0.2, 1 - actCdPct / 100) : 1;
+      const speed = 1 / effectiveRatio;
       cdRem = Math.max(0, cdRem - dt * speed);
     }
 
